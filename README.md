@@ -1,4 +1,4 @@
-# heksis
+# synzoia
 
 > A small private group for tracking how you sleep alongside friends. You and 2-5 people create a "crew," post last night's sleep, see each other's posts in a real-time feed, react, chat, and watch a rolling weekly leaderboard. The point is friends knowing how each other are recovering, not anonymous health data in a void.
 
@@ -38,7 +38,7 @@ Two pieces (gold-tier mentions both, plus the gold pick-one):
 
 ## Design decisions
 
-_Fill in 3-4 specific decisions with reasoning before submission. Examples drafted in [docs/superpowers/specs/2026-05-16-heksis-design.md](docs/superpowers/specs/2026-05-16-heksis-design.md) §4 (schema decisions) and §6 (logic decisions)._
+_Fill in 3-4 specific decisions with reasoning before submission. Examples drafted in [docs/superpowers/specs/2026-05-16-synzoia-design.md](docs/superpowers/specs/2026-05-16-synzoia-design.md) §4 (schema decisions) and §6 (logic decisions)._
 
 ## Where Claude helped / where we pushed back
 
@@ -74,4 +74,4 @@ cd frontend && npm test
 
 ## Design doc
 
-Full spec lives at [docs/superpowers/specs/2026-05-16-heksis-design.md](docs/superpowers/specs/2026-05-16-heksis-design.md). HealthKit bridge research for the sleep-ingestion path lives at [docs/healthkit-research.md](docs/healthkit-research.md).
+Full spec lives at [docs/superpowers/specs/2026-05-16-synzoia-design.md](docs/superpowers/specs/2026-05-16-synzoia-design.md). HealthKit bridge research for the sleep-ingestion path lives at [docs/healthkit-research.md](docs/healthkit-research.md).

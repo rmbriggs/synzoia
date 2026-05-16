@@ -1,10 +1,10 @@
-# CLAUDE.md — heksis team conventions
+# CLAUDE.md — synzoia team conventions
 
-This file is loaded into every agent session for every teammate. It exists so Claude/Cursor produces consistent code across the three of us. The full design spec is at `docs/superpowers/specs/2026-05-16-heksis-design.md` — read it first.
+This file is loaded into every agent session for every teammate. It exists so Claude/Cursor produces consistent code across the three of us. The full design spec is at `docs/superpowers/specs/2026-05-16-synzoia-design.md` — read it first.
 
 ## Project at a glance
 
-- **What**: heksis — a private-group sleep-tracking social app. Crews post nightly sleep, see each other's posts in a real-time feed, react, chat, and watch a rolling leaderboard.
+- **What**: synzoia — a private-group sleep-tracking social app. Crews post nightly sleep, see each other's posts in a real-time feed, react, chat, and watch a rolling leaderboard.
 - **Stack**: FastAPI (Python) + React/TS + Vite + Tailwind + Supabase Postgres/Auth/Realtime + Railway hosting.
 - **Tier**: Gold. The gold pick-one is real-time; custom features are group chat and reactions.
 - **Due**: Day of lecture 10.2. ~3 weeks total.
@@ -110,6 +110,6 @@ Common agent failure modes worth catching in code review:
 
 ## Pointers
 
-- Full spec: `docs/superpowers/specs/2026-05-16-heksis-design.md`
+- Full spec: `docs/superpowers/specs/2026-05-16-synzoia-design.md`
 - HealthKit bridge options for Teammate A: `docs/healthkit-research.md`
 - Assignment PDF: not in repo (course material). Ask Micah if you need a section quoted.

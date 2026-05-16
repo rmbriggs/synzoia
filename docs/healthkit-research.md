@@ -12,7 +12,7 @@ A Shortcut is a no-code iOS automation. The user installs a Shortcut you publish
 
 **How it works**:
 1. You build a Shortcut in the Shortcuts app on an iPhone.
-2. Steps: "Get Health Sample" (Sleep Analysis, Last 24 hours) → "Get Dictionary from Input" → "Get Contents of URL" with POST to `https://heksis.example.com/api/healthkit/import` and a Bearer token.
+2. Steps: "Get Health Sample" (Sleep Analysis, Last 24 hours) → "Get Dictionary from Input" → "Get Contents of URL" with POST to `https://synzoia.example.com/api/healthkit/import` and a Bearer token.
 3. You export the Shortcut as an `.shortcut` file and host the share URL.
 4. Users tap "Add Shortcut" once. Then they tap it once a morning, or schedule it via Personal Automation.
 
@@ -46,11 +46,11 @@ A Shortcut is a no-code iOS automation. The user installs a Shortcut you publish
 
 Shortcuts can produce JSON via the "Dictionary" + "Get Contents of URL" action with a JSON body. The mapping from HealthKit's `HKCategoryValueSleepAnalysis` values to your `stage` enum (`awake|rem|core|deep`) is straightforward.
 
-**Authentication path**: easiest is "user signs in to heksis on the web, copies a long-lived API token from their settings page, pastes it into the Shortcut." Not as polished as OAuth, but bulletproof.
+**Authentication path**: easiest is "user signs in to synzoia on the web, copies a long-lived API token from their settings page, pastes it into the Shortcut." Not as polished as OAuth, but bulletproof.
 
 **Sample Apple Shortcut → cURL equivalent** (what the Shortcut actually sends):
 ```bash
-curl -X POST https://heksis.example.com/api/healthkit/import \
+curl -X POST https://synzoia.example.com/api/healthkit/import \
   -H "Authorization: Bearer $USER_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -75,7 +75,7 @@ Companies that aggregate HealthKit + Fitbit + Oura + Whoop + Garmin behind one A
 
 **How it works (Terra-style)**:
 1. You sign up for Terra, get an API key.
-2. User clicks "Connect HealthKit" in heksis → redirects to Terra's flow → user installs Terra's app or scans a QR code → grants Terra HealthKit permissions on their iPhone.
+2. User clicks "Connect HealthKit" in synzoia → redirects to Terra's flow → user installs Terra's app or scans a QR code → grants Terra HealthKit permissions on their iPhone.
 3. Terra starts pulling sleep data from HealthKit on the user's phone, pushes it to your webhook (`POST /api/healthkit/import` or wherever).
 4. You verify the webhook signature, normalize the data into `sleep_posts`.
 
@@ -94,7 +94,7 @@ Companies that aggregate HealthKit + Fitbit + Oura + Whoop + Garmin behind one A
 **Body shape (Terra's webhook)**:
 ```json
 {
-  "user": {"user_id": "terra-uuid", "reference_id": "your-heksis-user-id"},
+  "user": {"user_id": "terra-uuid", "reference_id": "your-synzoia-user-id"},
   "type": "sleep",
   "data": [
     {
@@ -110,12 +110,12 @@ Companies that aggregate HealthKit + Fitbit + Oura + Whoop + Garmin behind one A
 
 ## Option 3 — Manual XML export upload
 
-Apple Health lets users export their entire Health database as a zipped XML file (Health app → tap profile picture → Export All Data). The user uploads the zip to heksis; you parse the XML and ingest sleep records.
+Apple Health lets users export their entire Health database as a zipped XML file (Health app → tap profile picture → Export All Data). The user uploads the zip to synzoia; you parse the XML and ingest sleep records.
 
 **How it works**:
 1. User taps "Export All Data" in Apple Health on their iPhone.
 2. AirDrops or emails themselves the `export.zip`.
-3. Uploads it via a form in heksis at `/settings/import`.
+3. Uploads it via a form in synzoia at `/settings/import`.
 4. Backend unzips, parses `export.xml`, filters `Record` elements with `type="HKCategoryTypeIdentifierSleepAnalysis"`, batches into `sleep_posts`.
 
 **Pros**:

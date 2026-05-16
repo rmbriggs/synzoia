@@ -1,4 +1,4 @@
-# heksis — Design Spec
+# synzoia — Design Spec
 
 **Date**: 2026-05-16
 **Class**: Software Engineering — UATX — Spring 2026
@@ -17,7 +17,7 @@ A small private group for tracking how you sleep alongside friends. You and 2-5 
 
 Mapping to the invariants in the project PDF:
 
-| Invariant | How heksis hits it |
+| Invariant | How synzoia hits it |
 |---|---|
 | FastAPI backend, 6-7 endpoints | 11 endpoints in §5 |
 | Nontrivial logic | Two pieces: rolling leaderboard + timezone-aware streaks (§6) |
@@ -346,7 +346,7 @@ Per PDF: "you do backend, I do frontend" falls apart. Each teammate owns DB → 
 1. **HealthKit bridge path** — Teammate A picks one of: Apple Shortcuts, third-party broker (Terra/Vital/Rook), manual XML export, native iOS companion. Research doc at `docs/healthkit-research.md`. The schema is source-agnostic; only the import endpoint shape changes.
 2. **Social model revisit** — Working default is closed groups with invite codes. If the team wants friends-graph instead, we revisit before week 2; after that it's too expensive to change.
 3. **Visual identity** — Color palette, type scale, vibe. Teammate B drives. Need a decision by end of week 1 so styling doesn't get bolted on at week 3.
-4. **Project name confirmation** — "heksis" is the working name. Lock in the GitHub org/repo URL with the team.
+4. **Project name confirmation** — "synzoia" is the working name. Lock in the GitHub org/repo URL with the team.
 
 ## 11. Out of scope
 
