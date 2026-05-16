@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.python-version
+
+# Node
+node_modules/
+dist/
+build/
+.vite/
+*.log
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Test + coverage artifacts
+coverage/
+.coverage
+htmlcov/
+
+# Claude / agent harness (each teammate has their own)
+.claude/
+
+# Course materials — not for public repo
+final_project.pdf
