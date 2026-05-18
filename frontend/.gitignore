@@ -13,3 +13,6 @@ dist
 # Test output
 coverage
 .vitest-cache
+
+# TS incremental build cache
+*.tsbuildinfo
