@@ -90,6 +90,9 @@ dist
 # Test output
 coverage
 .vitest-cache
+
+# TS incremental build cache
+*.tsbuildinfo
 ```
 
 - [ ] **Step 5: Create a placeholder README**
@@ -266,9 +269,8 @@ Create `frontend/tsconfig.app.json`:
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
 
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     },
 
     "types": ["vite/client", "@testing-library/jest-dom"]
@@ -331,8 +333,7 @@ Note: typecheck isn't runnable yet because no source files or `vite.config.ts` e
 Create `frontend/vite.config.ts`:
 
 ```ts
-/// <reference types="vitest" />
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
