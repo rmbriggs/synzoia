@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@theme {
+  /* Visual identity tokens land here once Teammate B picks the palette + type scale
+     (parent design spec §10.3). Empty for now is intentional — defaults to Tailwind's
+     stock theme. */
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
