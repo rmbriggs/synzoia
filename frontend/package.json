@@ -1,0 +1,21 @@
+{
+  "name": "synzoia-frontend",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run",
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "typecheck": "tsc -b --noEmit",
+    "format": "prettier --write ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "private": true
+}
