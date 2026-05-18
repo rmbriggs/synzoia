@@ -729,13 +729,14 @@ import { supabase } from '@/lib/supabase';
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
 export class ApiError extends Error {
-  override name = 'ApiError';
-  constructor(
-    public status: number,
-    public code: string,
-    message: string,
-  ) {
+  name = 'ApiError';
+  status: number;
+  code: string;
+
+  constructor(status: number, code: string, message: string) {
     super(message);
+    this.status = status;
+    this.code = code;
   }
 }
 
