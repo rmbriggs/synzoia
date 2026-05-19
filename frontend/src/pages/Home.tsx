@@ -1,8 +1,10 @@
+import { Navigate } from 'react-router-dom';
+import { useAuthSession } from '@/hooks/useAuthSession';
+
 export default function Home() {
-  return (
-    <main className="p-6">
-      <h1 className="text-2xl font-semibold">synzoia</h1>
-      <p className="text-sm text-gray-500">/ — landing / redirect (TBD)</p>
-    </main>
-  );
+  const { session, loading } = useAuthSession();
+  if (loading) {
+    return <p className="p-6">Loading…</p>;
+  }
+  return <Navigate to={session ? '/crews' : '/auth'} replace />;
 }
