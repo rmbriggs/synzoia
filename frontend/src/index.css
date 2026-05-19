@@ -1,13 +1,17 @@
 @import "tailwindcss";
 
 @theme {
-  /* Visual identity tokens land here once Teammate B picks the palette + type scale
-     (parent design spec §10.3). Empty for now is intentional — defaults to Tailwind's
-     stock theme. */
+  --color-background: oklch(99% 0.003 95);
+  --radius-card: 1rem;
 }
 
 html,
 body,
 #root {
   height: 100%;
+}
+
+body {
+  @apply bg-background text-slate-900 antialiased;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
 }
