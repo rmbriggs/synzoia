@@ -9,8 +9,8 @@ export default function Settings() {
       <PageHeader title="Settings" />
       <Card className="mt-6 space-y-4">
         <h2 className="text-lg font-semibold">Profile</h2>
-        <FormField id="display-name" label="Display name" disabled />
-        <FormField id="timezone" label="Timezone" disabled />
+        <FormField id="settings-display-name" label="Display name" disabled />
+        <FormField id="settings-timezone" label="Timezone" disabled />
         <Button variant="primary" disabled>Save</Button>
       </Card>
       <Card className="mt-4">
