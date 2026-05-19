@@ -37,14 +37,14 @@ describe('TabStrip', () => {
   });
 
   it('writes ?tab= when a tab is clicked', () => {
-    let captured: URLSearchParams | null = null;
+    const captured: { current: URLSearchParams | null } = { current: null };
     const { getByText } = render(
       <MemoryRouter initialEntries={['/crews/abc']}>
         <TabStrip tabs={TABS} defaultKey="feed" />
-        <ParamSpy onParams={(p) => { captured = p; }} />
+        <ParamSpy onParams={(p) => { captured.current = p; }} />
       </MemoryRouter>,
     );
     fireEvent.click(getByText('Chat'));
-    expect(captured?.get('tab')).toBe('chat');
+    expect(captured.current?.get('tab')).toBe('chat');
   });
 });
