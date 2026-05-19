@@ -1,14 +1,45 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
+import EmptyState from '@/components/ui/EmptyState';
+import PageHeader from '@/components/ui/PageHeader';
+import TabStrip from '@/components/ui/TabStrip';
+
+const TABS = [
+  { key: 'feed', label: 'Feed' },
+  { key: 'leaderboard', label: 'Leaderboard' },
+  { key: 'chat', label: 'Chat' },
+];
+
+const TAB_MESSAGES: Record<string, string> = {
+  feed: 'Feed coming soon — posts from this crew will appear here.',
+  leaderboard: 'Leaderboard coming soon — weekly rankings.',
+  chat: 'Chat coming soon — group thread for this crew.',
+};
 
 export default function CrewDetail() {
   const { id } = useParams<{ id: string }>();
+  const [params] = useSearchParams();
+  const activeTab = params.get('tab') ?? 'feed';
+  const message = TAB_MESSAGES[activeTab] ?? TAB_MESSAGES.feed;
+
   return (
-    <main className="p-6">
-      <h1 className="text-2xl font-semibold">Crew {id}</h1>
-      <p className="text-sm text-gray-500">
-        /crews/:id — shell + leaderboard tab owned by Micah; feed tab by Teammate A;
-        chat tab by Teammate B
-      </p>
-    </main>
+    <>
+      <PageHeader
+        title={`Crew ${id}`}
+        description="Real crew name lands when backend's ready."
+        action={
+          <Button variant="primary" to={`/crews/${id}/post`}>
+            Post sleep
+          </Button>
+        }
+      />
+      <div className="mt-6">
+        <TabStrip tabs={TABS} defaultKey="feed" />
+      </div>
+      <Card className="mt-6">
+        <EmptyState message={message} />
+      </Card>
+    </>
   );
 }

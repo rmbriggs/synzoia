@@ -12,6 +12,10 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
+vi.mock('@/hooks/useAuthSession', () => ({
+  useAuthSession: () => ({ session: null, loading: false }),
+}));
+
 function renderAt(path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -25,7 +29,6 @@ function renderAt(path: string) {
 
 describe('App smoke', () => {
   const routes = [
-    '/',
     '/auth',
     '/crews',
     '/crews/abc',
@@ -41,4 +44,11 @@ describe('App smoke', () => {
       expect(headings.length).toBeGreaterThanOrEqual(1);
     });
   }
+
+  it('redirects "/" to /auth when logged out', () => {
+    const { container } = renderAt('/');
+    // The "Sleep with friends." tagline only exists on /auth, so seeing it
+    // here proves we actually redirected (vs. rendering Home directly).
+    expect(container.textContent).toContain('Sleep with friends.');
+  });
 });

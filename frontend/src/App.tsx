@@ -1,4 +1,5 @@
 import { Route, Routes } from 'react-router-dom';
+import AppLayout from '@/components/layout/AppLayout';
 import Home from '@/pages/Home';
 import Auth from '@/pages/Auth';
 import Crews from '@/pages/Crews';
@@ -12,11 +13,13 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/auth" element={<Auth />} />
-      <Route path="/crews" element={<Crews />} />
-      <Route path="/crews/:id" element={<CrewDetail />} />
-      <Route path="/crews/:id/post" element={<PostSleep />} />
-      <Route path="/users/:id" element={<UserProfile />} />
-      <Route path="/settings" element={<Settings />} />
+      <Route element={<AppLayout />}>
+        <Route path="/crews" element={<Crews />} />
+        <Route path="/crews/:id" element={<CrewDetail />} />
+        <Route path="/crews/:id/post" element={<PostSleep />} />
+        <Route path="/users/:id" element={<UserProfile />} />
+        <Route path="/settings" element={<Settings />} />
+      </Route>
     </Routes>
   );
 }

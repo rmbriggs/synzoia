@@ -1,15 +1,15 @@
-import type { Session } from '@supabase/supabase-js';
+import { useEffect, useState } from 'react';
+import { devAuth, type DevSession } from '@/lib/auth-dev';
 
 export interface AuthSessionState {
-  session: Session | null;
+  session: DevSession | null;
   loading: boolean;
 }
 
-/**
- * Stub. Real implementation (subscribes to supabase.auth.onAuthStateChange)
- * lands when the /auth page does. Returns logged-out + not-loading so
- * pages can render without errors during scaffolding.
- */
 export function useAuthSession(): AuthSessionState {
-  return { session: null, loading: false };
+  const [session, setSession] = useState<DevSession | null>(() => devAuth.read());
+
+  useEffect(() => devAuth.subscribe(setSession), []);
+
+  return { session, loading: false };
 }
