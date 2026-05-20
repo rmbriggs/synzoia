@@ -1,9 +1,13 @@
-interface EmptyStateProps {
+type Props = {
   message?: string;
-}
+};
 
-export default function EmptyState({ message = 'Coming soon' }: EmptyStateProps) {
+export function EmptyState({ message = 'Coming soon' }: Props) {
   return (
-    <div className="py-12 text-center text-slate-500 text-sm">{message}</div>
+    <div className="py-12 text-center text-muted-foreground text-sm">
+      {message}
+    </div>
   );
 }
+
+export default EmptyState;
