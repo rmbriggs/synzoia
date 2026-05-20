@@ -137,7 +137,7 @@ Configured on the Vercel project, scoped to Production + Preview + Development.
 | Name | Source | Notes |
 |---|---|---|
 | `SUPABASE_URL` | Supabase project settings | Used by FastAPI for JWT JWKs lookup |
-| `SUPABASE_SERVICE_KEY` | Supabase service role key | Bypasses RLS; backend writes |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | Bypasses RLS; backend writes |
 | `DATABASE_URL` | Supabase pooler URI | **Must be pooler URL, port 6543** |
 
 **Frontend (build-time, `VITE_` prefix → bundled into the React build)**

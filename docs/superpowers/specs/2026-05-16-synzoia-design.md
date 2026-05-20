@@ -285,7 +285,7 @@ React Router with bookmarkable URLs. Vite + React + TypeScript + Tailwind.
 1. On push to any branch + on PR: lint (ruff + eslint) + typecheck (mypy + tsc) + pytest + vitest
 2. On push to `main`: same checks. Deploy is handled separately by Vercel's git integration (auto-deploys every push: branches → preview URLs, `main` → production). CI does not deploy; it only gates merges.
 3. Required check: tests must pass before merge to `main` (enforced via GitHub branch protection).
-4. Secrets used in CI: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`, `DATABASE_URL`. No `VERCEL_TOKEN` is required because the Vercel GitHub App handles deploy auth.
+4. Secrets used in CI: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`. No `VERCEL_TOKEN` is required because the Vercel GitHub App handles deploy auth.
 
 ### Test DB strategy
 GitHub Actions `postgres` service container. Run migrations from scratch. Each test wrapped in a transaction rolled back at teardown. Fast, isolated.
