@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
+import ThemeToggle from '@/components/layout/ThemeToggle';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `flex-1 py-3 text-center label-mono transition-colors ${
@@ -23,17 +24,20 @@ export function AppLayout() {
               synzoia
             </span>
           </Link>
-          <nav className="hidden sm:flex items-center gap-6">
-            <NavLink to="/dashboard" className={topNavClass}>
-              Today
-            </NavLink>
-            <NavLink to="/crews" className={topNavClass}>
-              Crews
-            </NavLink>
-            <NavLink to="/settings" className={topNavClass}>
-              Settings
-            </NavLink>
-          </nav>
+          <div className="flex items-center gap-6">
+            <nav className="hidden sm:flex items-center gap-6">
+              <NavLink to="/dashboard" className={topNavClass}>
+                Today
+              </NavLink>
+              <NavLink to="/crews" className={topNavClass}>
+                Crews
+              </NavLink>
+              <NavLink to="/settings" className={topNavClass}>
+                Settings
+              </NavLink>
+            </nav>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 

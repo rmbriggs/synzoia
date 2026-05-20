@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import Button from '@/components/ui/AppButton';
+import ThemeToggle from '@/components/layout/ThemeToggle';
 
 const features = [
   {
@@ -72,6 +73,7 @@ export default function Landing() {
             >
               Sign in
             </Link>
+            <ThemeToggle />
           </div>
         </div>
       </header>
