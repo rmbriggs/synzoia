@@ -12,6 +12,9 @@ This file is loaded into every agent session for every teammate. It exists so Cl
 ## Repo layout
 
 ```
+api/
+  index.py                   # Vercel entrypoint — re-exports FastAPI app
+
 backend/
   app/
     main.py                  # FastAPI entry, /api/* routes only (Vercel serves the SPA)
@@ -23,7 +26,7 @@ backend/
     schemas/                 # Pydantic request/response models
   migrations/                # Alembic
   tests/                     # pytest
-  requirements.txt
+  requirements.txt           # Source of truth for backend deps
   .env.example
 
 frontend/
@@ -43,7 +46,9 @@ docs/
   superpowers/specs/         # Design docs (the canonical one is in here)
   healthkit-research.md      # Bridge options for Teammate A
 
-.github/workflows/ci.yml     # Lint + typecheck + tests + deploy gate
+vercel.json                  # Two builds (static SPA + python fn) + rewrites
+requirements.txt             # Defers to backend/requirements.txt via `-r`
+.github/workflows/ci.yml     # Lint + typecheck + tests; deploy gate via branch protection
 ```
 
 ## Rules of the road
