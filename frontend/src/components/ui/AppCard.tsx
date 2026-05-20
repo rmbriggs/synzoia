@@ -1,11 +1,17 @@
 import type { ReactNode } from 'react';
+import { Card as ShadcnCard, CardContent } from '@/components/ui/card';
 
-interface CardProps {
+type Props = {
   className?: string;
   children: ReactNode;
+};
+
+export function Card({ className, children }: Props) {
+  return (
+    <ShadcnCard className={className}>
+      <CardContent className="p-6">{children}</CardContent>
+    </ShadcnCard>
+  );
 }
 
-export default function Card({ className, children }: CardProps) {
-  const base = 'bg-white border border-slate-200 rounded-2xl p-6';
-  return <div className={className ? `${base} ${className}` : base}>{children}</div>;
-}
+export default Card;
