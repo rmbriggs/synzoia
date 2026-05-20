@@ -14,7 +14,7 @@ This file is loaded into every agent session for every teammate. It exists so Cl
 ```
 backend/
   app/
-    main.py                  # FastAPI entry, mounts /api and serves dist/
+    main.py                  # FastAPI entry, /api/* routes only (Vercel serves the SPA)
     auth.py                  # Supabase JWT verification dependency
     db.py                    # SQLAlchemy session / engine
     models/                  # ORM models (one file per table family)
