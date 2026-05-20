@@ -35,6 +35,7 @@ describe('App smoke', () => {
     '/crews/abc/post',
     '/users/xyz',
     '/settings',
+    '/style-guide',
   ];
 
   for (const route of routes) {
