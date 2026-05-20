@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import Button from '@/components/ui/Button';
+import Button from '@/components/ui/AppButton';
 
 describe('Button', () => {
   it('renders a <button> by default with primary variant classes', () => {
