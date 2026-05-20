@@ -37,7 +37,7 @@ export default function Auth() {
         )}
         <div className="text-center">
           <h1 className="text-2xl font-semibold tracking-tight">synzoia</h1>
-          <p className="text-slate-500 text-sm mt-1">Sleep with friends.</p>
+          <p className="text-muted-foreground text-sm mt-1">Sleep with friends.</p>
         </div>
         <form className="space-y-3 mt-6" onSubmit={onSubmit}>
           {isSignUp && (
@@ -72,11 +72,11 @@ export default function Auth() {
             {isSignUp ? 'Sign up' : 'Sign in'}
           </Button>
         </form>
-        <p className="text-center text-sm text-slate-500 mt-4">
+        <p className="text-center text-sm text-muted-foreground mt-4">
           {isSignUp ? 'Already have one?' : "Don't have an account?"}{' '}
           <button
             type="button"
-            className="text-indigo-600 hover:underline font-medium"
+            className="text-primary hover:underline font-medium"
             onClick={() => setMode(isSignUp ? 'sign-in' : 'sign-up')}
           >
             {isSignUp ? 'Sign in' : 'Sign up'}
