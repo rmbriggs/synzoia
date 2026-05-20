@@ -1,38 +1,34 @@
-import { describe, expect, it } from 'vitest';
-import { render } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Button from '@/components/ui/AppButton';
 
 describe('Button', () => {
-  it('renders a <button> by default with primary variant classes', () => {
-    const { container } = render(<Button variant="primary">Click</Button>);
-    const btn = container.querySelector('button');
-    expect(btn).not.toBeNull();
-    expect(btn?.className).toContain('bg-indigo-600');
-    expect(btn?.textContent).toBe('Click');
+  it('renders a <button> by default', () => {
+    render(<Button variant="primary">Click</Button>);
+    expect(screen.getByRole('button', { name: 'Click' })).toBeInTheDocument();
   });
 
-  it('renders secondary variant with border + white background', () => {
-    const { container } = render(<Button variant="secondary">Cancel</Button>);
-    const btn = container.querySelector('button');
-    expect(btn?.className).toContain('border-slate-200');
-    expect(btn?.className).toContain('bg-white');
+  it('renders secondary variant as a button', () => {
+    render(<Button variant="secondary">Cancel</Button>);
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
   });
 
-  it('renders ghost variant', () => {
-    const { container } = render(<Button variant="ghost">Skip</Button>);
-    const btn = container.querySelector('button');
-    expect(btn?.className).toContain('text-slate-600');
+  it('renders ghost variant as a button', () => {
+    render(<Button variant="ghost">Skip</Button>);
+    expect(screen.getByRole('button', { name: 'Skip' })).toBeInTheDocument();
   });
 
-  it('applies disabled styling when disabled prop is true', () => {
-    const { container } = render(
-      <Button variant="primary" disabled>Send</Button>,
-    );
-    const btn = container.querySelector('button');
-    expect(btn?.disabled).toBe(true);
-    expect(btn?.className).toContain('opacity-50');
-    expect(btn?.className).toContain('cursor-not-allowed');
+  it('applies disabled attribute when disabled prop is true', () => {
+    render(<Button variant="primary" disabled>Send</Button>);
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+  });
+
+  it('fires onClick when clicked', () => {
+    const handler = vi.fn();
+    render(<Button variant="primary" onClick={handler}>Click me</Button>);
+    fireEvent.click(screen.getByRole('button', { name: 'Click me' }));
+    expect(handler).toHaveBeenCalledOnce();
   });
 
   it('renders a react-router Link when `to` prop is provided', () => {
@@ -44,7 +40,16 @@ describe('Button', () => {
     const link = container.querySelector('a');
     expect(link).not.toBeNull();
     expect(link?.getAttribute('href')).toBe('/somewhere');
-    expect(link?.className).toContain('bg-indigo-600');
-    expect(container.querySelector('button')).toBeNull();
+    expect(link?.textContent).toBe('Go');
+  });
+
+  it('does not render an <a> when disabled with `to` prop', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <Button variant="primary" to="/somewhere" disabled>Go</Button>
+      </MemoryRouter>,
+    );
+    expect(container.querySelector('a')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Go' })).toBeDisabled();
   });
 });

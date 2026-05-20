@@ -1,62 +1,67 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { Button as ShadcnButton } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 type Variant = 'primary' | 'secondary' | 'ghost';
 
-interface ButtonBaseProps {
-  variant: Variant;
-  disabled?: boolean;
+const variantMap = {
+  primary: 'default',
+  secondary: 'outline',
+  ghost: 'ghost',
+} as const;
+
+type CommonProps = {
+  variant?: Variant;
   className?: string;
   children: ReactNode;
-}
-
-interface ButtonAsButtonProps extends ButtonBaseProps {
-  to?: undefined;
-  type?: ButtonHTMLAttributes<HTMLButtonElement>['type'];
-  onClick?: ButtonHTMLAttributes<HTMLButtonElement>['onClick'];
-}
-
-interface ButtonAsLinkProps extends ButtonBaseProps {
-  to: string;
-}
-
-type ButtonProps = ButtonAsButtonProps | ButtonAsLinkProps;
-
-const VARIANT_CLASSES: Record<Variant, string> = {
-  primary: 'bg-indigo-600 hover:bg-indigo-700 text-white',
-  secondary: 'bg-white border border-slate-200 hover:bg-slate-50 text-slate-900',
-  ghost: 'text-slate-600 hover:text-slate-900',
+  disabled?: boolean;
 };
 
-const BASE = 'inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition';
-const DISABLED = 'opacity-50 cursor-not-allowed';
+type ButtonAsButton = CommonProps & {
+  to?: undefined;
+  onClick?: () => void;
+  type?: 'button' | 'submit' | 'reset';
+};
 
-function composeClasses(variant: Variant, disabled: boolean, className?: string) {
-  const parts = [BASE, VARIANT_CLASSES[variant]];
-  if (disabled) parts.push(DISABLED);
-  if (className) parts.push(className);
-  return parts.join(' ');
-}
+type ButtonAsLink = CommonProps & {
+  to: string;
+  onClick?: undefined;
+  type?: undefined;
+};
 
-export default function Button(props: ButtonProps) {
-  const { variant, disabled = false, className, children } = props;
-  const composed = composeClasses(variant, disabled, className);
+type Props = ButtonAsButton | ButtonAsLink;
 
-  if ('to' in props && props.to !== undefined) {
+export function Button(props: Props) {
+  const { variant = 'primary', className, children, disabled } = props;
+  const shadcnVariant = variantMap[variant];
+
+  if ('to' in props && props.to) {
     if (disabled) {
-      return <span className={composed} aria-disabled="true">{children}</span>;
+      return (
+        <ShadcnButton variant={shadcnVariant} disabled className={cn(className)}>
+          {children}
+        </ShadcnButton>
+      );
     }
-    return <Link to={props.to} className={composed}>{children}</Link>;
+    return (
+      <ShadcnButton asChild variant={shadcnVariant} className={cn(className)}>
+        <Link to={props.to}>{children}</Link>
+      </ShadcnButton>
+    );
   }
 
   return (
-    <button
-      type={props.type ?? 'button'}
-      onClick={props.onClick}
+    <ShadcnButton
+      variant={shadcnVariant}
       disabled={disabled}
-      className={composed}
+      onClick={props.onClick}
+      type={props.type ?? 'button'}
+      className={cn(className)}
     >
       {children}
-    </button>
+    </ShadcnButton>
   );
 }
+
+export default Button;
