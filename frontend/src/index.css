@@ -59,9 +59,9 @@
 
 :root {
   --radius: 0.5rem;
-  --font-sans: DM Sans, sans-serif;
-  --font-serif: Lora, serif;
-  --font-mono: IBM Plex Mono, monospace;
+  --font-sans: "DM Sans", sans-serif;
+  --font-serif: "Lora", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --tracking-normal: 0em;
   --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
   --tracking-tight: calc(var(--tracking-normal) - 0.025em);
@@ -163,7 +163,68 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif);
+    font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif);
     letter-spacing: var(--tracking-normal);
+    font-feature-settings: "kern", "liga", "calt";
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-serif);
+    font-feature-settings: "kern", "liga", "dlig", "swsh", "ss01";
+  }
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+  .label-mono {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .hairline {
+    height: 1px;
+    background: var(--border);
+  }
+  .surface-grain {
+    position: relative;
+  }
+  .surface-grain::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.4;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.6 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+  }
+  .hero-wash {
+    background:
+      radial-gradient(60% 60% at 80% 10%, color-mix(in oklch, var(--accent) 70%, transparent) 0%, transparent 70%),
+      radial-gradient(70% 60% at 10% 90%, color-mix(in oklch, var(--secondary) 80%, transparent) 0%, transparent 65%),
+      var(--background);
+  }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.rise {
+  animation: rise 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.rise-1 { animation-delay: 80ms; }
+.rise-2 { animation-delay: 180ms; }
+.rise-3 { animation-delay: 300ms; }
+.rise-4 { animation-delay: 440ms; }
+.rise-5 { animation-delay: 600ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rise, .rise-1, .rise-2, .rise-3, .rise-4, .rise-5 {
+    animation: none;
   }
 }
