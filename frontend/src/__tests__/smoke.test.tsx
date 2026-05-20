@@ -29,12 +29,14 @@ function renderAt(path: string) {
 
 describe('App smoke', () => {
   const routes = [
+    '/',
     '/auth',
     '/crews',
     '/crews/abc',
     '/crews/abc/post',
     '/users/xyz',
     '/settings',
+    '/style-guide',
   ];
 
   for (const route of routes) {
@@ -45,10 +47,9 @@ describe('App smoke', () => {
     });
   }
 
-  it('redirects "/" to /auth when logged out', () => {
+  it('renders the landing page at "/" when logged out', () => {
     const { container } = renderAt('/');
-    // The "Sleep with friends." tagline only exists on /auth, so seeing it
-    // here proves we actually redirected (vs. rendering Home directly).
-    expect(container.textContent).toContain('Sleep with friends.');
+    // The "More than sleep tracking." headline is unique to the landing page.
+    expect(container.textContent).toContain('More than sleep tracking.');
   });
 });

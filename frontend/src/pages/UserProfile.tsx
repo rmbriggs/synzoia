@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import Card from '@/components/ui/Card';
+import Card from '@/components/ui/AppCard';
 import EmptyState from '@/components/ui/EmptyState';
 import PageHeader from '@/components/ui/PageHeader';
 

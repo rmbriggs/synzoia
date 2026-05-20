@@ -17,34 +17,35 @@ function ParamSpy({ onParams }: { onParams: (s: URLSearchParams) => void }) {
 }
 
 describe('TabStrip', () => {
-  it('highlights the tab matching ?tab= in the URL', () => {
-    const { getByText } = render(
+  it('marks the tab matching ?tab= as active', () => {
+    const { getByRole } = render(
       <MemoryRouter initialEntries={['/crews/abc?tab=leaderboard']}>
         <TabStrip tabs={TABS} defaultKey="feed" />
       </MemoryRouter>,
     );
-    expect(getByText('Leaderboard').className).toContain('border-indigo-600');
-    expect(getByText('Feed').className).toContain('text-slate-500');
+    expect(getByRole('tab', { name: 'Leaderboard' })).toHaveAttribute('data-state', 'active');
+    expect(getByRole('tab', { name: 'Feed' })).toHaveAttribute('data-state', 'inactive');
   });
 
   it('falls back to defaultKey when ?tab= is absent', () => {
-    const { getByText } = render(
+    const { getByRole } = render(
       <MemoryRouter initialEntries={['/crews/abc']}>
         <TabStrip tabs={TABS} defaultKey="feed" />
       </MemoryRouter>,
     );
-    expect(getByText('Feed').className).toContain('border-indigo-600');
+    expect(getByRole('tab', { name: 'Feed' })).toHaveAttribute('data-state', 'active');
   });
 
   it('writes ?tab= when a tab is clicked', () => {
     const captured: { current: URLSearchParams | null } = { current: null };
-    const { getByText } = render(
+    const { getByRole } = render(
       <MemoryRouter initialEntries={['/crews/abc']}>
         <TabStrip tabs={TABS} defaultKey="feed" />
         <ParamSpy onParams={(p) => { captured.current = p; }} />
       </MemoryRouter>,
     );
-    fireEvent.click(getByText('Chat'));
+    const chatTab = getByRole('tab', { name: 'Chat' });
+    fireEvent.mouseDown(chatTab, { button: 0, ctrlKey: false });
     expect(captured.current?.get('tab')).toBe('chat');
   });
 });

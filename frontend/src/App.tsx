@@ -7,12 +7,14 @@ import CrewDetail from '@/pages/CrewDetail';
 import PostSleep from '@/pages/PostSleep';
 import UserProfile from '@/pages/UserProfile';
 import Settings from '@/pages/Settings';
+import StyleGuide from '@/pages/StyleGuide';
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/auth" element={<Auth />} />
+      <Route path="/style-guide" element={<StyleGuide />} />
       <Route element={<AppLayout />}>
         <Route path="/crews" element={<Crews />} />
         <Route path="/crews/:id" element={<CrewDetail />} />

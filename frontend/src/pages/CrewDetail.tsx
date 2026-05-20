@@ -1,6 +1,6 @@
 import { useParams, useSearchParams } from 'react-router-dom';
-import Button from '@/components/ui/Button';
-import Card from '@/components/ui/Card';
+import Button from '@/components/ui/AppButton';
+import Card from '@/components/ui/AppCard';
 import EmptyState from '@/components/ui/EmptyState';
 import PageHeader from '@/components/ui/PageHeader';
 import TabStrip from '@/components/ui/TabStrip';
