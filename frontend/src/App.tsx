@@ -8,6 +8,7 @@ import PostSleep from '@/pages/PostSleep';
 import UserProfile from '@/pages/UserProfile';
 import Settings from '@/pages/Settings';
 import StyleGuide from '@/pages/StyleGuide';
+import Dashboard from '@/pages/Dashboard';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
       <Route path="/auth" element={<Auth />} />
       <Route path="/style-guide" element={<StyleGuide />} />
       <Route element={<AppLayout />}>
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/crews" element={<Crews />} />
         <Route path="/crews/:id" element={<CrewDetail />} />
         <Route path="/crews/:id/post" element={<PostSleep />} />

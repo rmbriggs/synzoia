@@ -10,6 +10,24 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
     />
+    <script>
+      (function () {
+        try {
+          var stored = window.localStorage.getItem('synzoia.theme');
+          var prefersDark = window.matchMedia(
+            '(prefers-color-scheme: dark)'
+          ).matches;
+          var theme =
+            stored === 'light' || stored === 'dark'
+              ? stored
+              : prefersDark
+              ? 'dark'
+              : 'light';
+          if (theme === 'dark')
+            document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

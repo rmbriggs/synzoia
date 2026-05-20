@@ -31,6 +31,7 @@ describe('App smoke', () => {
   const routes = [
     '/',
     '/auth',
+    '/dashboard',
     '/crews',
     '/crews/abc',
     '/crews/abc/post',

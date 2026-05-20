@@ -6,12 +6,14 @@ import PageHeader from '@/components/ui/PageHeader';
 import { Separator } from '@/components/ui/separator';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { devAuth } from '@/lib/auth-dev';
+import { getCurrentUser } from '@/lib/mockData';
 
 export default function Settings() {
   const navigate = useNavigate();
   const { session } = useAuthSession();
   const devEnabled = devAuth.isEnabled();
   const canSignOut = devEnabled && session !== null;
+  const me = getCurrentUser();
 
   function onSignOut() {
     devAuth.signOut();
@@ -23,8 +25,18 @@ export default function Settings() {
       <PageHeader title="Settings" />
       <Card className="mt-6 space-y-4">
         <h2 className="text-lg font-semibold">Profile</h2>
-        <FormField id="settings-display-name" label="Display name" disabled />
-        <FormField id="settings-timezone" label="Timezone" disabled />
+        <FormField
+          id="settings-display-name"
+          label="Display name"
+          defaultValue={me.displayName}
+          disabled
+        />
+        <FormField
+          id="settings-timezone"
+          label="Timezone"
+          defaultValue={me.timezone}
+          disabled
+        />
         <Button variant="primary" disabled>Save</Button>
       </Card>
       <Separator className="my-4" />

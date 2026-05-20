@@ -22,7 +22,7 @@ export default function Auth() {
     if (isSignUp && !displayName) return;
     const effectiveName = isSignUp ? displayName : email.split('@')[0];
     devAuth.signIn(effectiveName, email);
-    navigate('/crews');
+    navigate('/dashboard');
   }
 
   return (
