@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import Button from '@/components/ui/AppButton';
 import Card from '@/components/ui/AppCard';
+import ConnectionStatus from '@/components/ConnectionStatus';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   formatClock,
@@ -58,11 +59,13 @@ export default function Dashboard() {
       {/* GREETING — washed hero matching the landing */}
       <section className="hero-wash surface-grain border-b border-border">
         <div className="relative px-4 sm:px-6 pt-12 pb-10 sm:pt-16 sm:pb-12 max-w-2xl mx-auto">
-          <div className="flex items-center gap-3 rise rise-1">
+          <div className="flex items-center gap-3 rise rise-1 flex-wrap">
             <span className="hairline w-12" />
             <span className="label-mono text-muted-foreground">
               Today · {todayLabel()}
             </span>
+            <span className="label-mono text-muted-foreground">·</span>
+            <ConnectionStatus />
           </div>
 
           <h1 className="mt-6 font-display text-5xl sm:text-6xl leading-[0.95] tracking-tight rise rise-2">
