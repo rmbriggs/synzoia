@@ -9,6 +9,7 @@ import UserProfile from '@/pages/UserProfile';
 import Settings from '@/pages/Settings';
 import StyleGuide from '@/pages/StyleGuide';
 import Dashboard from '@/pages/Dashboard';
+import DbExplorer from '@/pages/DbExplorer';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/crews/:id/post" element={<PostSleep />} />
         <Route path="/users/:id" element={<UserProfile />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/db" element={<DbExplorer />} />
       </Route>
     </Routes>
   );

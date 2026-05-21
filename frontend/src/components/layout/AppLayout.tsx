@@ -32,6 +32,9 @@ export function AppLayout() {
               <NavLink to="/crews" className={topNavClass}>
                 Crews
               </NavLink>
+              <NavLink to="/db" className={topNavClass}>
+                Database
+              </NavLink>
               <NavLink to="/settings" className={topNavClass}>
                 Settings
               </NavLink>
