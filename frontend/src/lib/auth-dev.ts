@@ -9,7 +9,10 @@ export interface DevSession {
 }
 
 function isEnabled(): boolean {
-  return import.meta.env.VITE_DEV_FAKE_AUTH === 'true';
+  // Default-on: the only sign-in path right now is the localStorage shim.
+  // Real Supabase auth will replace this; explicitly set the env var to
+  // 'false' once that lands to gate the fake flow off in production.
+  return import.meta.env.VITE_DEV_FAKE_AUTH !== 'false';
 }
 
 function read(): DevSession | null {

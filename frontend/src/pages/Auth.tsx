@@ -47,6 +47,7 @@ export default function Auth() {
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
+              required
             />
           )}
           <FormField
@@ -55,6 +56,7 @@ export default function Auth() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            required
           />
           <FormField
             id="password"
@@ -62,6 +64,7 @@ export default function Auth() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            required
           />
           <Button
             variant="primary"
