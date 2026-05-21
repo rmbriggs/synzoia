@@ -33,7 +33,7 @@ Two pieces (gold-tier mentions both, plus the gold pick-one):
 | Database | Supabase Postgres | Class default; powers Auth + Realtime in one provider |
 | Auth | Supabase Auth | Don't roll your own; JWT verified server-side |
 | Realtime | Supabase Realtime | Frontend subscribes directly via supabase-js |
-| Hosting | Railway (one service, FastAPI serves built React + /api/*) | One URL, no CORS, deploy-on-push |
+| Hosting | Vercel (static SPA + FastAPI as Python serverless function at /api/*) | One URL, no CORS, deploy-on-push via Vercel git integration |
 | CI | GitHub Actions | Gates merge to main on green tests |
 
 ## Design decisions

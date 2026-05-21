@@ -26,7 +26,7 @@ Mapping to the invariants in the project PDF:
 | Real user identity | Supabase Auth, JWT-verified on every API call |
 | Multi-user value | A crew is meaningless solo — you need other people in it for the feed, leaderboard, and chat to mean anything |
 | Test suite + CI | ~10 pytest + 2 Vitest, GitHub Actions gating deploy (§8) |
-| Public cloud URL | Railway (FastAPI serves built React + /api/*) |
+| Public cloud URL | Vercel (static SPA + FastAPI as Python serverless function at /api/*) |
 | Public GitHub repo | TBD repo name, set up after spec lock |
 | README | Drafted at end of build, covers all 9 required sections |
 
@@ -38,28 +38,7 @@ Mapping to the invariants in the project PDF:
 
 ## 3. Architecture
 
-One Railway service hosting FastAPI, which also serves the built React bundle. Frontend talks to FastAPI for HTTP and to Supabase directly for auth + realtime.
-
-```
-                  ┌─────────────────────────────────────┐
-                  │  Browser (React + TS + Vite build)  │
-                  │  - supabase-js: auth, realtime sub  │
-                  │  - fetch: /api/* for everything else│
-                  └────────┬──────────────────┬─────────┘
-                           │ HTTPS            │ WSS
-                           │ /api/*           │ realtime channels
-                           ▼                  ▼
-              ┌──────────────────────┐  ┌──────────────────┐
-              │  Railway service     │  │  Supabase        │
-              │  FastAPI (Python)    │  │  Auth (JWT)      │
-              │  - serves dist/ at / │  │  Postgres        │
-              │  - /api/* endpoints  │◄─┤  Realtime        │
-              │  - verifies SB JWT   │  │                  │
-              │  - SQLAlchemy        │  │                  │
-              └──────────┬───────────┘  └────────▲─────────┘
-                         │                       │
-                         └───── DATABASE_URL ────┘
-```
+Single Vercel project hosts both halves. The Vite/React build is served as a static SPA from Vercel's CDN; FastAPI runs as a Python serverless function mounted at `/api/*`. Supabase provides auth, Postgres, and realtime. Detailed architecture (with diagram), the serverless DB-connection rule, and the deploy model are in [`2026-05-20-vercel-hosting-design.md`](./2026-05-20-vercel-hosting-design.md).
 
 **Key flows**:
 
@@ -304,9 +283,9 @@ React Router with bookmarkable URLs. Vite + React + TypeScript + Tailwind.
 
 ### CI — `.github/workflows/ci.yml`
 1. On push to any branch + on PR: lint (ruff + eslint) + typecheck (mypy + tsc) + pytest + vitest
-2. On push to `main`: same + deploy step (Railway auto-deploy on green via webhook)
-3. Required check: tests must pass before merge to `main`
-4. Secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`, `DATABASE_URL`, `RAILWAY_TOKEN`
+2. On push to `main`: same checks. Deploy is handled separately by Vercel's git integration (auto-deploys every push: branches → preview URLs, `main` → production). CI does not deploy; it only gates merges.
+3. Required check: tests must pass before merge to `main` (enforced via GitHub branch protection).
+4. Secrets used in CI: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`. No `VERCEL_TOKEN` is required because the Vercel GitHub App handles deploy auth.
 
 ### Test DB strategy
 GitHub Actions `postgres` service container. Run migrations from scratch. Each test wrapped in a transaction rolled back at teardown. Fast, isolated.

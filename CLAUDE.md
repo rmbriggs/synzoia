@@ -5,16 +5,19 @@ This file is loaded into every agent session for every teammate. It exists so Cl
 ## Project at a glance
 
 - **What**: synzoia — a private-group sleep-tracking social app. Crews post nightly sleep, see each other's posts in a real-time feed, react, chat, and watch a rolling leaderboard.
-- **Stack**: FastAPI (Python) + React/TS + Vite + Tailwind + Supabase Postgres/Auth/Realtime + Railway hosting.
+- **Stack**: FastAPI (Python) + React/TS + Vite + Tailwind + Supabase Postgres/Auth/Realtime + Vercel hosting (FastAPI as Python serverless functions).
 - **Tier**: Gold. The gold pick-one is real-time; custom features are group chat and reactions.
 - **Due**: Day of lecture 10.2. ~3 weeks total.
 
 ## Repo layout
 
 ```
+api/
+  index.py                   # Vercel entrypoint — re-exports FastAPI app
+
 backend/
   app/
-    main.py                  # FastAPI entry, mounts /api and serves dist/
+    main.py                  # FastAPI entry, /api/* routes only (Vercel serves the SPA)
     auth.py                  # Supabase JWT verification dependency
     db.py                    # SQLAlchemy session / engine
     models/                  # ORM models (one file per table family)
@@ -23,7 +26,7 @@ backend/
     schemas/                 # Pydantic request/response models
   migrations/                # Alembic
   tests/                     # pytest
-  requirements.txt
+  requirements.txt           # Source of truth for backend deps
   .env.example
 
 frontend/
@@ -43,7 +46,9 @@ docs/
   superpowers/specs/         # Design docs (the canonical one is in here)
   healthkit-research.md      # Bridge options for Teammate A
 
-.github/workflows/ci.yml     # Lint + typecheck + tests + deploy gate
+vercel.json                  # Two builds (static SPA + python fn) + rewrites
+requirements.txt             # Defers to backend/requirements.txt via `-r`
+.github/workflows/ci.yml     # Lint + typecheck + tests; deploy gate via branch protection
 ```
 
 ## Rules of the road
@@ -107,6 +112,7 @@ Common agent failure modes worth catching in code review:
 - Suggesting websockets or Socket.IO instead of Supabase Realtime. We have realtime; use it.
 - Wrapping every endpoint in try/except that swallows errors. Let FastAPI's exception handlers do their job.
 - Adding "validation" in three places (Pydantic, custom decorator, DB constraint). Constraints in the DB; Pydantic for shape; nothing custom.
+- Configuring SQLAlchemy with a real connection pool. We deploy on Vercel serverless — use `NullPool` and connect via Supabase's pgbouncer pooler (port 6543).
 
 ## Pointers
 

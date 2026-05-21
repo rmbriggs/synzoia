@@ -1,0 +1,6 @@
+# Python deps for the Vercel function. Mirror of backend/requirements.txt —
+# keep the two in sync until we consolidate.
+fastapi==0.115.6
+sqlalchemy==2.0.36
+psycopg[binary]==3.2.13
+python-dotenv==1.0.1

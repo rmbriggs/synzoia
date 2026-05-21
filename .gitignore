@@ -1,12 +1,14 @@
 # Python
 __pycache__/
 *.py[cod]
+*.pyc
 *$py.class
 *.egg-info/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .venv/
+**/.venv/
 venv/
 .python-version
 
@@ -26,6 +28,9 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Vercel
+.vercel/
 
 # Editors
 .vscode/
