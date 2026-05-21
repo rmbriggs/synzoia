@@ -52,7 +52,7 @@ Everything below traces back to one of those rows.
 **Deferred to v2 (see `docs/v2-roadmap.md` for the full list):**
 
 - Sleep stages (REM/Core/Deep/Awake)
-- `source` field (manual vs HealthKit vs Whoop)
+- ~~`source` field (manual vs HealthKit vs Whoop)~~ — *landed in v1 via migration 0002*
 - `avatar_url`, `bio`, `sleep_goal_minutes` on profiles
 - Group rotation / matchmaking / achievement-gating
 - Multi-category health data (heart rate, workouts, food, weight)
@@ -187,13 +187,12 @@ Micah's UI shows the field but doesn't require it. A user can post without ratin
 **Why `note` is capped at 280 chars:**
 Twitter-length. Forces brevity, keeps the feed scannable, matches the "quick social post" vibe (Strava's activity-note pattern). Long-form journaling can be a v2 feature.
 
-**Why `UNIQUE (user_id, night_of)`:**
-Prevents double-posting for the same night. Without this, a user could post their sleep three times and inflate the leaderboard. Enforced at the DB level because the API alone can't be trusted (race conditions, retries, bugs).
+**Why `UNIQUE (user_id, night_of)` (now a partial unique index — see migration 0002):**
+Prevents double-posting for the same night. Without this, a user could post their sleep three times and inflate the leaderboard. Enforced at the DB level because the API alone can't be trusted (race conditions, retries, bugs). As of migration 0002, the constraint is a *partial* unique index `WHERE deleted_at IS NULL` so users can re-post after a soft delete.
 
-**Why no `source`, no sleep stages, no `updated_at`:**
-- `source` (manual vs HealthKit): No UI exposes it. Always `'manual'` in v1 = dead weight.
-- Sleep stages: No UI input. Add when HealthKit bridge lands.
-- `updated_at`: Editing a post isn't in Micah's UI. If/when edit functionality is added, this column comes with it.
+**Why no sleep stages:** No UI input. Add when HealthKit bridge lands.
+
+**`source`, `updated_at`, `deleted_at` (added in migration 0002):** See §5 — these resolved the v1 open questions on tracker badges and edit/delete UX.
 
 **Why the index on `(user_id, night_of desc)`:**
 Two hot queries:
@@ -286,12 +285,10 @@ See `docs/v2-roadmap.md` for the full list. Anything beyond v1 lives there.
 
 These are explicit asks for Micah / the team before we go further:
 
-1. **`quality_score` field — keep it?** I designed for it because the PostSleep UI has the input. But it's tracker-relative (Whoop 85 ≠ Oura 85), so it probably shouldn't drive the leaderboard. Two options:
-   - Keep the column, but only use it for personal display (not ranked)
-   - Drop the field from PostSleep UI and the column from `sleep_posts`
-2. **Editing / deleting sleep posts** — Micah's UI doesn't expose these flows. Do we want them in v1? If yes, `sleep_posts` needs `updated_at` and possibly a soft-delete column.
-3. **Account deletion flow** — Right now `ON DELETE CASCADE` from `profiles` removes all sleep posts, memberships, and streaks. Is that the intended behavior, or do we want soft delete + retention?
-4. **`source` field on sleep_posts** — Strava-style "data came from X" badge. I deferred this since the UI doesn't show it, but it'd be valuable when HealthKit lands. Worth adding in v1?
+1. ~~**`quality_score` field — keep it?**~~ **Resolved 2026-05-21 (migration 0002):** column stays, used for **personal display only** — never as a leaderboard input. Locked in via `COMMENT ON COLUMN sleep_posts.quality_score`.
+2. ~~**Editing / deleting sleep posts**~~ **Resolved 2026-05-21 (migration 0002):** added `updated_at` (maintained by a `touch_updated_at` trigger) and `deleted_at` for soft delete. Replaced `UNIQUE (user_id, night_of)` with a **partial** unique index `WHERE deleted_at IS NULL` so users can re-post after deletion.
+3. **Account deletion flow** — Right now `ON DELETE CASCADE` from `profiles` removes all sleep posts, memberships, and streaks. Is that the intended behavior, or do we want soft delete + retention? *(Still open — explicitly left alone for now.)*
+4. ~~**`source` field on sleep_posts**~~ **Resolved 2026-05-21 (migration 0002):** added `source text NOT NULL default 'manual'` with `CHECK source IN ('manual', 'apple_health', 'whoop', 'oura', 'fitbit', 'garmin')`. New trackers = 1-line CHECK update.
 
 ---
 
@@ -300,7 +297,7 @@ These are explicit asks for Micah / the team before we go further:
 Things I considered but didn't build into the schema because they're not in Micah's UI. Adding them is cheap once UI exists:
 
 - **Sleep goal + weekly progress bar.** A single nullable `sleep_goal_minutes` column on `profiles` + a frontend bar showing this week's total vs goal × 7. Engaging personal-feedback feature.
-- **Strava-style data-source badges.** Show "via Whoop" / "via Apple Health" / "Manual entry" on feed cards. Requires `source` column.
+- ~~**Strava-style data-source badges.**~~ **Resolved 2026-05-21:** `source` column added in migration 0002; the dashboard feed now renders a small "via Apple Health" / "via Whoop" badge for non-manual entries.
 - **Profile bio.** Twitter-style 160-char self-description. Makes profile pages feel less like stat sheets.
 - **GitHub-style sleep heatmap.** Calendar grid on profile page showing which nights the user posted, color-coded by quality/duration. High-signal visualization, ~30 lines of frontend work, zero new schema.
 - **Profile photos.** `avatar_url` column on profiles, points at Supabase Storage. Avatar circles next to feed posts.

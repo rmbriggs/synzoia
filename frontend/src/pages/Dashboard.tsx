@@ -13,6 +13,7 @@ import {
   listPostsForCrew,
   listPostsForUser,
   relativeTime,
+  sourceLabel,
 } from '@/lib/mockData';
 
 function greeting(): string {
@@ -251,10 +252,15 @@ export default function Dashboard() {
                               {relativeTime(post.postedAt)}
                             </span>
                           </div>
-                          <div className="mt-1.5 flex items-baseline gap-3 label-mono text-muted-foreground">
+                          <div className="mt-1.5 flex items-baseline gap-3 flex-wrap label-mono text-muted-foreground">
                             <span className="font-display italic text-primary not-italic text-base">
                               {post.hours.toFixed(1)}h
                             </span>
+                            {post.source !== 'manual' && (
+                              <span className="label-mono text-muted-foreground">
+                                via {sourceLabel(post.source)}
+                              </span>
+                            )}
                             {post.note && (
                               <span className="font-sans text-foreground text-sm leading-relaxed">
                                 {post.note}

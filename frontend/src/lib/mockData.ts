@@ -10,6 +10,14 @@ export type User = {
   timezone: string;
 };
 
+export type SleepSource =
+  | 'manual'
+  | 'apple_health'
+  | 'whoop'
+  | 'oura'
+  | 'fitbit'
+  | 'garmin';
+
 export type SleepPost = {
   id: string;
   userId: string;
@@ -19,6 +27,7 @@ export type SleepPost = {
   hours: number;
   quality: number; // 1-100
   note?: string;
+  source: SleepSource;
   reactions: { emoji: string; count: number }[];
   postedAt: string; // ISO
 };
@@ -148,6 +157,7 @@ export const sleepPosts: SleepPost[] = [
     hours: 8.5,
     quality: 88,
     note: 'first time in two weeks I slept past my alarm — the body knew',
+    source: 'apple_health',
     reactions: [
       { emoji: '😴', count: 3 },
       { emoji: '🔥', count: 1 },
@@ -163,6 +173,7 @@ export const sleepPosts: SleepPost[] = [
     hours: 7,
     quality: 72,
     note: 'okay-ish. neighbor’s dog ruined the 5am stretch.',
+    source: 'manual',
     reactions: [
       { emoji: '🐶', count: 2 },
       { emoji: '🫠', count: 1 },
@@ -178,6 +189,7 @@ export const sleepPosts: SleepPost[] = [
     hours: 8,
     quality: 91,
     note: 'lisbon morning, all is well',
+    source: 'whoop',
     reactions: [{ emoji: '☀️', count: 4 }],
     postedAt: iso(5 * HOUR),
   },
@@ -189,6 +201,7 @@ export const sleepPosts: SleepPost[] = [
     wake: iso(4 * HOUR + 15 * 60 * 1000),
     hours: 8,
     quality: 80,
+    source: 'manual',
     reactions: [{ emoji: '👏', count: 2 }],
     postedAt: iso(4 * HOUR),
   },
@@ -201,6 +214,7 @@ export const sleepPosts: SleepPost[] = [
     hours: 8,
     quality: 84,
     note: 'paper turned in. now I can rest.',
+    source: 'manual',
     reactions: [
       { emoji: '🎉', count: 5 },
       { emoji: '📝', count: 2 },
@@ -215,6 +229,7 @@ export const sleepPosts: SleepPost[] = [
     wake: iso(DAY + 4 * HOUR),
     hours: 8,
     quality: 76,
+    source: 'manual',
     reactions: [],
     postedAt: iso(DAY + 4 * HOUR),
   },
@@ -227,6 +242,7 @@ export const sleepPosts: SleepPost[] = [
     hours: 6,
     quality: 55,
     note: 'rough one. travel day.',
+    source: 'oura',
     reactions: [{ emoji: '🫂', count: 3 }],
     postedAt: iso(2 * DAY + 3 * HOUR),
   },
@@ -238,6 +254,7 @@ export const sleepPosts: SleepPost[] = [
     wake: iso(2 * DAY + 3 * HOUR + 45 * 60 * 1000),
     hours: 8,
     quality: 82,
+    source: 'manual',
     reactions: [{ emoji: '🌙', count: 1 }],
     postedAt: iso(2 * DAY + 3 * HOUR),
   },
@@ -252,6 +269,7 @@ export const sleepPosts: SleepPost[] = [
     hours: 7.5,
     quality: 79,
     note: 'demo prep wrapped at 11. small miracle.',
+    source: 'manual',
     reactions: [
       { emoji: '🚀', count: 2 },
       { emoji: '🛠️', count: 1 },
@@ -266,10 +284,24 @@ export const sleepPosts: SleepPost[] = [
     wake: iso(4 * HOUR + 15 * 60 * 1000),
     hours: 8,
     quality: 80,
+    source: 'manual',
     reactions: [{ emoji: '👏', count: 1 }],
     postedAt: iso(4 * HOUR),
   },
 ];
+
+const SOURCE_LABELS: Record<SleepSource, string> = {
+  manual: 'manual',
+  apple_health: 'Apple Health',
+  whoop: 'Whoop',
+  oura: 'Oura',
+  fitbit: 'Fitbit',
+  garmin: 'Garmin',
+};
+
+export function sourceLabel(source: SleepSource): string {
+  return SOURCE_LABELS[source];
+}
 
 export function listPostsForCrew(crewId: string, limit?: number): SleepPost[] {
   const filtered = sleepPosts
