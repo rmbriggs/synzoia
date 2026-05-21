@@ -1,20 +1,44 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Calendar, Settings as SettingsIcon, Users } from 'lucide-react';
+import type { ReactNode } from 'react';
 import ThemeToggle from '@/components/layout/ThemeToggle';
-
-const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex-1 py-3 text-center label-mono transition-colors ${
-    isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-  }`;
 
 const topNavClass = ({ isActive }: { isActive: boolean }) =>
   `label-mono transition-colors ${
     isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
   }`;
 
+function BottomNavItem({
+  to,
+  icon,
+  label,
+}: {
+  to: string;
+  icon: ReactNode;
+  label: string;
+}) {
+  return (
+    <NavLink
+      to={to}
+      end
+      className={({ isActive }) =>
+        `flex flex-col items-center justify-center gap-1 px-5 py-2 rounded-full transition-all ${
+          isActive
+            ? 'text-primary bg-[color-mix(in_oklch,var(--primary)_14%,transparent)]'
+            : 'text-muted-foreground hover:text-foreground'
+        }`
+      }
+    >
+      <span aria-hidden="true">{icon}</span>
+      <span className="text-[11px] font-medium tracking-wide">{label}</span>
+    </NavLink>
+  );
+}
+
 export function AppLayout() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="bg-background border-b border-border sticky top-0 z-10">
+    <div className="min-h-screen text-foreground">
+      <header className="border-b border-border/60 sticky top-0 z-10 backdrop-blur-md bg-background/70">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <Link to="/dashboard" className="flex items-baseline gap-2">
             <span
@@ -44,24 +68,31 @@ export function AppLayout() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6 pb-24 sm:pb-6">
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6 pb-32 sm:pb-6">
         <Outlet />
       </main>
 
       <nav
-        className="sm:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border"
+        className="sm:hidden fixed bottom-4 inset-x-0 flex justify-center pointer-events-none z-20"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        aria-label="Primary"
       >
-        <div className="flex">
-          <NavLink to="/dashboard" className={navLinkClass}>
-            Today
-          </NavLink>
-          <NavLink to="/crews" className={navLinkClass}>
-            Crews
-          </NavLink>
-          <NavLink to="/settings" className={navLinkClass}>
-            Settings
-          </NavLink>
+        <div className="glass-bar flex items-center gap-1 p-1.5 pointer-events-auto">
+          <BottomNavItem
+            to="/dashboard"
+            icon={<Calendar size={18} strokeWidth={1.75} />}
+            label="Today"
+          />
+          <BottomNavItem
+            to="/crews"
+            icon={<Users size={18} strokeWidth={1.75} />}
+            label="Crews"
+          />
+          <BottomNavItem
+            to="/settings"
+            icon={<SettingsIcon size={18} strokeWidth={1.75} />}
+            label="Settings"
+          />
         </div>
       </nav>
     </div>

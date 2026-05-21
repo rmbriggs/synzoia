@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import Button from '@/components/ui/AppButton';
 import Card from '@/components/ui/AppCard';
 import ConnectionStatus from '@/components/ConnectionStatus';
+import WaveCurve from '@/components/ui/WaveCurve';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   formatClock,
@@ -57,9 +58,9 @@ export default function Dashboard() {
 
   return (
     <div className="-mx-4 sm:-mx-6 -my-6 sm:-my-6">
-      {/* GREETING — washed hero matching the landing */}
-      <section className="hero-wash surface-grain border-b border-border">
-        <div className="relative px-4 sm:px-6 pt-12 pb-10 sm:pt-16 sm:pb-12 max-w-2xl mx-auto">
+      {/* GREETING — hero card with a tide-style wave curve underneath */}
+      <section className="border-b border-border/60 relative">
+        <div className="relative px-4 sm:px-6 pt-12 pb-4 sm:pt-16 max-w-2xl mx-auto">
           <div className="flex items-center gap-3 rise rise-1 flex-wrap">
             <span className="hairline w-12" />
             <span className="label-mono text-muted-foreground">
@@ -72,7 +73,7 @@ export default function Dashboard() {
           <h1 className="mt-6 font-display text-5xl sm:text-6xl leading-[0.95] tracking-tight rise rise-2">
             {greeting()}
             <br />
-            <em className="text-primary">{me.displayName}.</em>
+            <em className="text-primary glow-primary">{me.displayName}.</em>
           </h1>
 
           {postedToday && myLatestPost ? (
@@ -80,7 +81,7 @@ export default function Dashboard() {
               <span className="label-mono text-muted-foreground">
                 You posted ·
               </span>
-              <span className="font-display italic text-xl">
+              <span className="font-display italic text-xl text-primary">
                 {myLatestPost.hours.toFixed(1)}h
               </span>
               <span className="label-mono text-muted-foreground">·</span>
@@ -110,6 +111,9 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+        <div className="text-primary/80 max-w-2xl mx-auto px-2 sm:px-4 rise rise-4">
+          <WaveCurve shape="tide" />
+        </div>
       </section>
 
       <div className="px-4 sm:px-6 py-10 max-w-2xl mx-auto space-y-10">
@@ -123,18 +127,18 @@ export default function Dashboard() {
           <Card>
             <div className="grid grid-cols-2 gap-6">
               <div>
-                <div className="font-display italic text-6xl text-primary tabular-nums leading-none">
+                <div className="font-sans font-semibold text-7xl text-primary tabular-nums leading-none glow-primary">
                   {streak.current}
                 </div>
-                <div className="label-mono text-muted-foreground mt-2">
+                <div className="label-mono text-muted-foreground mt-3">
                   current · nights
                 </div>
               </div>
               <div>
-                <div className="font-display italic text-6xl tabular-nums leading-none">
+                <div className="font-sans font-semibold text-7xl tabular-nums leading-none text-foreground">
                   {streak.longest}
                 </div>
-                <div className="label-mono text-muted-foreground mt-2">
+                <div className="label-mono text-muted-foreground mt-3">
                   longest · nights
                 </div>
               </div>
@@ -159,7 +163,7 @@ export default function Dashboard() {
                 <Link
                   key={crew.id}
                   to={`/crews/${crew.id}`}
-                  className="block border border-border bg-background hover:bg-accent/30 transition-colors p-5 group"
+                  className="surface-glass block p-5 group transition-all hover:scale-[1.01]"
                 >
                   <h3 className="font-display text-xl tracking-tight group-hover:text-primary transition-colors">
                     {crew.name}

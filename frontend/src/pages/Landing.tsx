@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import Button from '@/components/ui/AppButton';
 import ThemeToggle from '@/components/layout/ThemeToggle';
+import WaveCurve from '@/components/ui/WaveCurve';
 
 const features = [
   {
@@ -45,9 +46,9 @@ const steps = [
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen text-foreground">
       {/* Top bar */}
-      <header className="border-b border-border">
+      <header className="border-b border-border/60 backdrop-blur-md bg-background/70 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 sm:px-8 h-16 flex items-center justify-between">
           <div className="flex items-baseline gap-3">
             <span
@@ -80,7 +81,14 @@ export default function Landing() {
 
       <main>
         {/* HERO */}
-        <section className="relative hero-wash surface-grain overflow-hidden">
+        <section className="relative overflow-hidden">
+          {/* Decorative tide curve floating in the top-right of the hero */}
+          <div
+            aria-hidden="true"
+            className="absolute -top-12 right-0 w-[60%] sm:w-[45%] text-primary/40 pointer-events-none rise rise-1"
+          >
+            <WaveCurve shape="tide" className="h-32 sm:h-40" />
+          </div>
           <div className="relative max-w-6xl mx-auto px-6 sm:px-8 pt-24 sm:pt-32 pb-24 sm:pb-40">
             {/* Section marker */}
             <div className="flex items-center gap-3 rise rise-1">
@@ -94,7 +102,7 @@ export default function Landing() {
               The daily ritual
               <br />
               that keeps your{' '}
-              <em className="text-primary font-display">crew</em> close.
+              <em className="text-primary font-display glow-primary">crew</em> close.
             </h1>
 
             <p className="mt-8 text-lg sm:text-xl text-muted-foreground max-w-2xl leading-relaxed rise rise-3">
@@ -157,11 +165,11 @@ export default function Landing() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-border border border-border">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-border/60 border border-border/60">
               {features.map((f) => (
                 <article
                   key={f.n}
-                  className="bg-background p-8 sm:p-10 group transition-colors hover:bg-accent/30"
+                  className="bg-card p-8 sm:p-10 group transition-colors hover:bg-accent/30"
                 >
                   <div className="flex items-baseline justify-between mb-6">
                     <span className="font-mono text-sm text-muted-foreground">

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Card as ShadcnCard, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 type Props = {
   className?: string;
@@ -8,9 +8,7 @@ type Props = {
 
 export function Card({ className, children }: Props) {
   return (
-    <ShadcnCard className={className}>
-      <CardContent className="p-6">{children}</CardContent>
-    </ShadcnCard>
+    <div className={cn('surface-glass p-6', className)}>{children}</div>
   );
 }
 

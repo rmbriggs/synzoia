@@ -13,19 +13,15 @@
     <script>
       (function () {
         try {
+          // Default to dark unless the user explicitly chose light.
+          // (The marine-forecast-inspired palette is designed dark-first.)
           var stored = window.localStorage.getItem('synzoia.theme');
-          var prefersDark = window.matchMedia(
-            '(prefers-color-scheme: dark)'
-          ).matches;
-          var theme =
-            stored === 'light' || stored === 'dark'
-              ? stored
-              : prefersDark
-              ? 'dark'
-              : 'light';
+          var theme = stored === 'light' ? 'light' : 'dark';
           if (theme === 'dark')
             document.documentElement.classList.add('dark');
-        } catch (e) {}
+        } catch (e) {
+          document.documentElement.classList.add('dark');
+        }
       })();
     </script>
   </head>
