@@ -22,32 +22,20 @@ def _make_sqlite_engine(*table_names: str):
 
 
 def test_db_check_reports_table_counts_when_all_present(monkeypatch):
-    engine = _make_sqlite_engine(
-        "profiles", "groups", "memberships", "sleep_posts", "streaks"
-    )
+    engine = _make_sqlite_engine("profiles")
     with engine.begin() as conn:
         conn.execute(text("INSERT INTO profiles (id) VALUES (1), (2)"))
-        conn.execute(text("INSERT INTO groups (id) VALUES (1)"))
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     response = TestClient(main.app).get("/api/health/db")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "ok": True,
-        "tables": {
-            "profiles": 2,
-            "groups": 1,
-            "memberships": 0,
-            "sleep_posts": 0,
-            "streaks": 0,
-        },
-    }
+    assert response.json() == {"ok": True, "tables": {"profiles": 2}}
 
 
 def test_db_check_marks_missing_tables_as_null(monkeypatch):
-    # Migration hasn't run; only `profiles` exists.
-    engine = _make_sqlite_engine("profiles")
+    # Migration hasn't run; profiles is missing.
+    engine = _make_sqlite_engine()  # no tables
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     response = TestClient(main.app).get("/api/health/db")
@@ -55,6 +43,4 @@ def test_db_check_marks_missing_tables_as_null(monkeypatch):
     assert response.status_code == 200
     body = response.json()
     assert body["ok"] is False
-    assert body["tables"]["profiles"] == 0
-    assert body["tables"]["groups"] is None
-    assert body["tables"]["streaks"] is None
+    assert body["tables"]["profiles"] is None

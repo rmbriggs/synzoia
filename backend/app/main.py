@@ -1,19 +1,46 @@
+import re
+import secrets
+from datetime import datetime
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from backend.app import db
 
 app = FastAPI(title="synzoia")
 
-# Tables introduced by 0001_initial.sql. Hardcoded list — never inject
-# user input here; the names are interpolated into raw SQL because
-# Postgres won't accept bind params for identifiers.
-_TABLES = ("profiles", "groups", "memberships", "sleep_posts", "streaks")
+# Live tables after migration 0003 (universal-feed + token-auth pivot).
+# Hardcoded — never inject user input here; names are interpolated into
+# raw SQL because Postgres won't accept bind params for identifiers.
+_TABLES = ("profiles",)
 _DUMP_LIMIT = 100
+
+# Username: 1-30 chars of [A-Za-z0-9_]. Matches the migration's
+# char_length(username) between 1 and 30 check and gives a readable
+# 422 message instead of letting the DB reject it.
+_USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{1,30}$")
+
+
+class AppError(Exception):
+    """Domain error shaped to CLAUDE.md's {error: {code, message}} contract."""
+
+    def __init__(self, status_code: int, code: str, message: str) -> None:
+        self.status_code = status_code
+        self.code = code
+        self.message = message
+
+
+@app.exception_handler(AppError)
+def _app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": {"code": exc.code, "message": exc.message}},
+    )
 
 
 @app.get("/api/health")
@@ -66,3 +93,58 @@ def db_dump() -> dict:
         "errors": errors,
         "limit": _DUMP_LIMIT,
     }
+
+
+class CreateProfileRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=30)
+
+
+class ProfileResponse(BaseModel):
+    username: str
+    token: str
+    join_date: datetime
+
+
+@app.post(
+    "/api/profiles",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ProfileResponse,
+)
+def create_profile(req: CreateProfileRequest) -> ProfileResponse:
+    """Sign up: pick a username, get a token. The token is the user's
+    iOS-Shortcut credential; the website itself doesn't authenticate."""
+    if not _USERNAME_RE.match(req.username):
+        raise AppError(
+            422,
+            "invalid_username",
+            "Username must be 1-30 characters of letters, digits, or underscore.",
+        )
+
+    # 32 hex chars = 128 bits of entropy; fits the 16-128 char constraint.
+    token = secrets.token_hex(16)
+
+    try:
+        with db.get_engine().begin() as conn:
+            row = (
+                conn.execute(
+                    text(
+                        "INSERT INTO profiles (username, token) "
+                        "VALUES (:username, :token) "
+                        "RETURNING username, token, join_date"
+                    ),
+                    {"username": req.username, "token": token},
+                )
+                .mappings()
+                .one()
+            )
+    except IntegrityError as e:
+        # Either username collided (expected) or token collided (1-in-2^128).
+        # Both surface as a unique-violation; treat as username-taken since
+        # token collisions are not user-actionable and shouldn't happen.
+        raise AppError(
+            409,
+            "username_taken",
+            "That username is already taken.",
+        ) from e
+
+    return ProfileResponse(**dict(row))
