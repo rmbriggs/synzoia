@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { Calendar, Settings as SettingsIcon, Users } from 'lucide-react';
+import { Database, Rss, Trophy } from 'lucide-react';
 import type { ReactNode } from 'react';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 
@@ -40,7 +40,7 @@ export function AppLayout() {
     <div className="min-h-screen text-foreground">
       <header className="border-b border-border/60 sticky top-0 z-10 backdrop-blur-md bg-background/70">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <Link to="/dashboard" className="flex items-baseline gap-2">
+          <Link to="/feed" className="flex items-baseline gap-2">
             <span
               data-logo-slot
               className="font-display italic text-xl tracking-tight text-foreground"
@@ -50,17 +50,14 @@ export function AppLayout() {
           </Link>
           <div className="flex items-center gap-6">
             <nav className="hidden sm:flex items-center gap-6">
-              <NavLink to="/dashboard" className={topNavClass}>
-                Today
+              <NavLink to="/feed" className={topNavClass}>
+                Feed
               </NavLink>
-              <NavLink to="/crews" className={topNavClass}>
-                Crews
+              <NavLink to="/leaderboard" className={topNavClass}>
+                Leaderboard
               </NavLink>
               <NavLink to="/db" className={topNavClass}>
                 Database
-              </NavLink>
-              <NavLink to="/settings" className={topNavClass}>
-                Settings
               </NavLink>
             </nav>
             <ThemeToggle />
@@ -79,19 +76,19 @@ export function AppLayout() {
       >
         <div className="glass-bar flex items-center gap-1 p-1.5 pointer-events-auto">
           <BottomNavItem
-            to="/dashboard"
-            icon={<Calendar size={18} strokeWidth={1.75} />}
-            label="Today"
+            to="/feed"
+            icon={<Rss size={18} strokeWidth={1.75} />}
+            label="Feed"
           />
           <BottomNavItem
-            to="/crews"
-            icon={<Users size={18} strokeWidth={1.75} />}
-            label="Crews"
+            to="/leaderboard"
+            icon={<Trophy size={18} strokeWidth={1.75} />}
+            label="Leaderboard"
           />
           <BottomNavItem
-            to="/settings"
-            icon={<SettingsIcon size={18} strokeWidth={1.75} />}
-            label="Settings"
+            to="/db"
+            icon={<Database size={18} strokeWidth={1.75} />}
+            label="Database"
           />
         </div>
       </nav>
