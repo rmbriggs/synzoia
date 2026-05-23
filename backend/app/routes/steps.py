@@ -10,11 +10,14 @@ and the route layer never grows business logic.
 from datetime import date, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query, status
 
 from backend.app import db
+from backend.app.auth import require_user
 from backend.app.errors import AppError
 from backend.app.schemas.steps import (
+    CreateStepRequest,
+    CreateStepResponse,
     GlobalDailyResponse,
     GlobalSummaryResponse,
     GlobalWeeklyResponse,
@@ -125,3 +128,30 @@ def user_summary(username: str) -> UserSummaryResponse:
             return svc.get_user_summary(conn, username)
     except svc.UserNotFound as e:
         raise _user_not_found(e.username) from e
+
+
+# ---------------------------------------------------------------------------
+# Write
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=CreateStepResponse,
+)
+def create_step(
+    req: CreateStepRequest,
+    user_id: int = Depends(require_user),
+) -> CreateStepResponse:
+    """POST /api/steps — write a step snapshot on behalf of the
+    Bearer-token user. Called by the iOS Shortcut every time Apple
+    Health step data is synced. `user_id` is resolved from the token,
+    NEVER from the request body (per CLAUDE.md)."""
+    with db.get_engine().begin() as conn:
+        return svc.create_step(
+            conn,
+            user_id=user_id,
+            timestamp=req.timestamp,
+            total=req.total,
+        )

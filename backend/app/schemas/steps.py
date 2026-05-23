@@ -1,14 +1,18 @@
-"""Response shapes for /api/steps/*.
+"""Request + response shapes for /api/steps/*.
 
-Every endpoint returns a single, ready-to-display JSON object. Clients
+Read endpoints return a single, ready-to-display JSON object. Clients
 should render the body directly; they should not aggregate, rank, or
 filter on their side.
+
+The write endpoint (POST /api/steps) accepts the minimum payload an
+iOS Shortcut can build: a timestamp and a step count. `user_id` is
+resolved from the Bearer token, never from the body.
 """
 
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class LeaderboardEntry(BaseModel):
@@ -90,3 +94,28 @@ class UserSummaryResponse(BaseModel):
     best_day: Optional[UserBestDay] = None
     rank_all_time: Optional[int] = None
     days_active: int
+
+
+# ---------------------------------------------------------------------------
+# Write
+# ---------------------------------------------------------------------------
+
+
+class CreateStepRequest(BaseModel):
+    """Body shape for POST /api/steps. The iOS Shortcut sends one of
+    these every time it syncs Apple Health step data."""
+
+    timestamp: datetime
+    total: int = Field(ge=0)
+    # Upper bound is enforced as a sanity outlier in the service layer
+    # (OUTLIER_CAP), not at the schema level — we want the row stored
+    # so we can see what HealthKit sent, but excluded from aggregations.
+
+
+class CreateStepResponse(BaseModel):
+    """Row returned to the client after a successful POST."""
+
+    id: int
+    user_id: int
+    timestamp: datetime
+    total: int

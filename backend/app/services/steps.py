@@ -28,6 +28,7 @@ from sqlalchemy.engine import Connection
 
 from backend.app.schemas.steps import (
     BestDayEver,
+    CreateStepResponse,
     DailyTotal,
     GlobalDailyResponse,
     GlobalSummaryResponse,
@@ -407,4 +408,38 @@ def get_user_summary(
         best_day=best_day,
         rank_all_time=rank_all_time,
         days_active=len(user_days),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Write
+# ---------------------------------------------------------------------------
+
+
+def create_step(
+    conn: Connection,
+    user_id: int,
+    timestamp: datetime,
+    total: int,
+) -> CreateStepResponse:
+    """Insert one step row on behalf of `user_id`. The caller is
+    responsible for resolving `user_id` from the Bearer token before
+    invoking this — this layer does NOT look at HTTP headers."""
+    row = (
+        conn.execute(
+            text(
+                "INSERT INTO steps (user_id, timestamp, total) "
+                "VALUES (:user_id, :timestamp, :total) "
+                "RETURNING id, user_id, timestamp, total"
+            ),
+            {"user_id": user_id, "timestamp": timestamp, "total": total},
+        )
+        .mappings()
+        .one()
+    )
+    return CreateStepResponse(
+        id=int(row["id"]),
+        user_id=int(row["user_id"]),
+        timestamp=row["timestamp"],
+        total=int(row["total"]),
     )
