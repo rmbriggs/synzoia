@@ -1,12 +1,11 @@
-import { supabase } from '@/lib/supabase';
-
 /**
  * Cache key convention (used with @tanstack/react-query):
- *   ['me']
- *   ['groups', groupId, 'feed']
- *   ['groups', groupId, 'leaderboard', window]
- *   ['groups', groupId, 'messages']
+ *   ['profiles', username]
  * Keys are arrays mirroring the URL.
+ *
+ * Browser calls are unauthenticated — the only writes are POST /api/profiles
+ * (sign-up) and read endpoints. The iOS Shortcut handles its own token
+ * header out-of-band; the website never sends one.
  */
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
@@ -27,11 +26,7 @@ export async function apiFetch<T = unknown>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const { data } = await supabase.auth.getSession();
   const headers = new Headers(init.headers);
-  if (data.session?.access_token) {
-    headers.set('Authorization', `Bearer ${data.session.access_token}`);
-  }
   if (init.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }

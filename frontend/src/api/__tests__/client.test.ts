@@ -1,21 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiFetch } from '@/api/client';
 
-const mockSession = vi.fn();
-
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: () => mockSession(),
-    },
-  },
-}));
-
 describe('apiFetch', () => {
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
-    mockSession.mockResolvedValue({ data: { session: null }, error: null });
+    globalThis.fetch = vi.fn();
   });
 
   afterEach(() => {
@@ -35,36 +25,40 @@ describe('apiFetch', () => {
     expect(result).toEqual({ ok: true });
   });
 
-  it('attaches Authorization header when session exists', async () => {
-    mockSession.mockResolvedValue({
-      data: { session: { access_token: 'tok_abc' } },
-      error: null,
-    });
+  it('sets Content-Type: application/json when a body is provided', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response('{}', {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
     );
     globalThis.fetch = fetchMock;
 
-    await apiFetch('/me');
+    await apiFetch('/profiles', {
+      method: 'POST',
+      body: JSON.stringify({ username: 'micah' }),
+    });
 
     const init = fetchMock.mock.calls[0][1] as RequestInit;
     const headers = new Headers(init.headers);
-    expect(headers.get('Authorization')).toBe('Bearer tok_abc');
+    expect(headers.get('Content-Type')).toBe('application/json');
   });
 
   it('throws ApiError with status, code, message on non-2xx', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(
       new Response(
-        JSON.stringify({ error: { code: 'not_found', message: 'group not found' } }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } },
+        JSON.stringify({
+          error: { code: 'username_taken', message: 'taken' },
+        }),
+        { status: 409, headers: { 'Content-Type': 'application/json' } },
       ),
     );
 
-    await expect(apiFetch('/groups/xyz')).rejects.toMatchObject({
+    await expect(apiFetch('/profiles')).rejects.toMatchObject({
       name: 'ApiError',
-      status: 404,
-      code: 'not_found',
-      message: 'group not found',
+      status: 409,
+      code: 'username_taken',
+      message: 'taken',
     });
   });
 

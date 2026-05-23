@@ -69,7 +69,7 @@ export default function Landing() {
               Style guide
             </Link>
             <Link
-              to="/auth"
+              to="/join"
               className="label-mono text-muted-foreground hover:text-foreground transition-colors"
             >
               Sign in
@@ -113,11 +113,11 @@ export default function Landing() {
             </p>
 
             <div className="mt-12 flex flex-wrap items-center gap-5 rise rise-4">
-              <Button variant="primary" to="/auth">
+              <Button variant="primary" to="/join">
                 Get started
               </Button>
               <Link
-                to="/auth"
+                to="/join"
                 className="label-mono text-muted-foreground hover:text-foreground border-b border-transparent hover:border-foreground transition-colors pb-0.5"
               >
                 I already have an account →
@@ -249,7 +249,7 @@ export default function Landing() {
             </p>
 
             <div className="mt-14 flex items-center justify-center">
-              <Button variant="primary" to="/auth">
+              <Button variant="primary" to="/join">
                 Start your crew
               </Button>
             </div>
@@ -272,7 +272,7 @@ export default function Landing() {
             <div className="label-mono text-muted-foreground mb-3">Product</div>
             <ul className="space-y-2">
               <li>
-                <Link to="/auth" className="hover:text-primary transition-colors">
+                <Link to="/join" className="hover:text-primary transition-colors">
                   Get started
                 </Link>
               </li>

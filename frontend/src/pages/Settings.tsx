@@ -17,7 +17,7 @@ export default function Settings() {
 
   function onSignOut() {
     devAuth.signOut();
-    navigate('/auth');
+    navigate('/join');
   }
 
   return (

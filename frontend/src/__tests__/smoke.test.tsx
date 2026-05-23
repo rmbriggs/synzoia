@@ -4,14 +4,6 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from '@/App';
 
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
-    },
-  },
-}));
-
 vi.mock('@/hooks/useAuthSession', () => ({
   useAuthSession: () => ({ session: null, loading: false }),
 }));
@@ -30,7 +22,7 @@ function renderAt(path: string) {
 describe('App smoke', () => {
   const routes = [
     '/',
-    '/auth',
+    '/join',
     '/dashboard',
     '/crews',
     '/crews/abc',

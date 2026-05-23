@@ -1,7 +1,7 @@
 import { Route, Routes } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import Home from '@/pages/Home';
-import Auth from '@/pages/Auth';
+import Join from '@/pages/Join';
 import Crews from '@/pages/Crews';
 import CrewDetail from '@/pages/CrewDetail';
 import PostSleep from '@/pages/PostSleep';
@@ -15,7 +15,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
-      <Route path="/auth" element={<Auth />} />
+      <Route path="/join" element={<Join />} />
       <Route path="/style-guide" element={<StyleGuide />} />
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
