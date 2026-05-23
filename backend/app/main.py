@@ -3,16 +3,19 @@ import secrets
 from datetime import datetime
 from typing import Any
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, status
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from backend.app import db
+from backend.app.errors import AppError, register_error_handlers
+from backend.app.routes import steps as steps_routes
 
 app = FastAPI(title="synzoia")
+register_error_handlers(app)
+app.include_router(steps_routes.router)
 
 # Live tables after migrations 0003 (pivot) + 0004 (steps).
 # Hardcoded — never inject user input here; names are interpolated into
@@ -24,23 +27,6 @@ _DUMP_LIMIT = 100
 # char_length(username) between 1 and 30 check and gives a readable
 # 422 message instead of letting the DB reject it.
 _USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{1,30}$")
-
-
-class AppError(Exception):
-    """Domain error shaped to CLAUDE.md's {error: {code, message}} contract."""
-
-    def __init__(self, status_code: int, code: str, message: str) -> None:
-        self.status_code = status_code
-        self.code = code
-        self.message = message
-
-
-@app.exception_handler(AppError)
-def _app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"error": {"code": exc.code, "message": exc.message}},
-    )
 
 
 @app.get("/api/health")
