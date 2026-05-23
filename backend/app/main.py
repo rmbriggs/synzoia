@@ -14,10 +14,10 @@ from backend.app import db
 
 app = FastAPI(title="synzoia")
 
-# Live tables after migration 0003 (universal-feed + token-auth pivot).
+# Live tables after migrations 0003 (pivot) + 0004 (steps).
 # Hardcoded — never inject user input here; names are interpolated into
 # raw SQL because Postgres won't accept bind params for identifiers.
-_TABLES = ("profiles",)
+_TABLES = ("profiles", "steps")
 _DUMP_LIMIT = 100
 
 # Username: 1-30 chars of [A-Za-z0-9_]. Matches the migration's
