@@ -36,8 +36,8 @@ describe('App smoke', () => {
 
   it('renders the landing page at "/" when logged out', () => {
     const { container } = renderAt('/');
-    // The "More than sleep tracking." headline is unique to the landing
-    // page. (It will change when the Landing rewrite PR lands.)
-    expect(container.textContent).toContain('More than sleep tracking.');
+    // The "More than a step counter." headline is unique to the
+    // landing page.
+    expect(container.textContent).toContain('More than a step counter.');
   });
 });
