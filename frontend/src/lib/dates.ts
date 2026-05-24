@@ -90,41 +90,47 @@ const CT_YMD = new Intl.DateTimeFormat('en-CA', {
 });
 
 /**
- * Render a short relative time for the feed: "just now", "5m ago",
- * "2h ago", "yesterday", "May 21". Anchored to CT for the day-bucket
- * decisions so "today" and "yesterday" line up with the user's wall
- * clock, not their browser's.
+ * Robustly parse a timestamp the backend may have sent without a
+ * timezone suffix. The posts API serializes naive UTC values like
+ * "2026-05-24T11:36:49.422952" — JavaScript reads those as
+ * browser-local time unless we explicitly mark them as UTC. Anything
+ * already carrying a Z or +HH:MM offset is passed through.
  */
-export function formatRelative(iso: string, now: Date = new Date()): string {
-  const then = new Date(iso);
-  const diffMs = now.getTime() - then.getTime();
-  const diffMin = Math.floor(diffMs / 60_000);
+function parseAsUtc(iso: string): Date {
+  const hasTzInfo = /[Zz]$|[+-]\d{2}:?\d{2}$/.test(iso);
+  return new Date(hasTzInfo ? iso : iso + 'Z');
+}
 
-  if (diffMin < 1) return 'just now';
-  if (diffMin < 60) return `${diffMin}m ago`;
+/**
+ * Render a post's timestamp as its actual wall-clock time in CT.
+ *
+ *   today:     "6:36 AM"
+ *   yesterday: "Yesterday 6:36 AM"
+ *   older:     "May 21, 2:15 PM"
+ *
+ * Robust against the API sending naive-UTC strings without a Z suffix
+ * (see parseAsUtc).
+ */
+export function formatPostedAt(iso: string, now: Date = new Date()): string {
+  const then = parseAsUtc(iso);
 
-  // For anything >= 1 hour old, check CT calendar day first so that
-  // "yesterday" kicks in as soon as midnight CT is crossed, even if
-  // the elapsed wall-clock time is under 24 hours.
-  //
-  // Note: subtracting exactly 86_400_000ms is "24h absolute" and has
-  // a theoretical few-minute mis-classification window near midnight
-  // on DST changeover nights (the day was effectively 23 or 25
-  // wall-clock hours). Acceptable for the demo; revisit if it ever
-  // matters by decrementing the CT date string in calendar terms.
+  const time = then.toLocaleTimeString('en-US', {
+    timeZone: APP_TIMEZONE,
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
   const thenDate = CT_YMD.format(then);
   const nowDate = CT_YMD.format(now);
   const yesterday = CT_YMD.format(new Date(now.getTime() - 86_400_000));
 
-  if (thenDate === nowDate) {
-    const diffHr = Math.floor(diffMin / 60);
-    return `${diffHr}h ago`;
-  }
-  if (thenDate === yesterday) return 'yesterday';
+  if (thenDate === nowDate) return time;
+  if (thenDate === yesterday) return `Yesterday ${time}`;
 
-  return then.toLocaleDateString('en-US', {
+  const date = then.toLocaleDateString('en-US', {
     timeZone: APP_TIMEZONE,
     month: 'long',
     day: 'numeric',
   });
+  return `${date}, ${time}`;
 }

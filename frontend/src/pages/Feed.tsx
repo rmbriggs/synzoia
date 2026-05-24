@@ -6,7 +6,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import PageHeader from '@/components/ui/PageHeader';
 import { ApiError } from '@/api/client';
 import { getFeed, type FeedPost } from '@/api/posts';
-import { formatRelative } from '@/lib/dates';
+import { formatPostedAt } from '@/lib/dates';
 
 function formatNumber(n: number): string {
   return n.toLocaleString();
@@ -26,7 +26,7 @@ function MilestonePost({ post }: { post: FeedPost }) {
           {post.body ?? 'hit a milestone'}
         </span>
         <span className="label-mono text-muted-foreground ml-auto">
-          {formatRelative(post.timestamp)}
+          {formatPostedAt(post.timestamp)}
         </span>
       </div>
     </Card>
@@ -42,7 +42,7 @@ function RecapPost({ post }: { post: FeedPost }) {
           Yesterday&rsquo;s top 3
         </h3>
         <span className="label-mono text-muted-foreground">
-          {formatRelative(post.timestamp)}
+          {formatPostedAt(post.timestamp)}
         </span>
       </div>
       <ol className="space-y-2">
@@ -84,7 +84,7 @@ function GenericPost({ post }: { post: FeedPost }) {
           {post.body ?? `posted (${post.type})`}
         </span>
         <span className="label-mono text-muted-foreground ml-auto">
-          {formatRelative(post.timestamp)}
+          {formatPostedAt(post.timestamp)}
         </span>
       </div>
     </Card>

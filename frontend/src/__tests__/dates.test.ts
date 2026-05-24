@@ -1,32 +1,39 @@
 import { describe, expect, it } from 'vitest';
-import { formatRelative } from '@/lib/dates';
+import { formatPostedAt } from '@/lib/dates';
 
-describe('formatRelative', () => {
-  const now = new Date('2026-05-24T15:00:00Z'); // 10am CT
+describe('formatPostedAt', () => {
+  // Anchor "now" to 10:00 AM CT on May 24 (= 15:00 UTC, May is CDT
+  // which is UTC-5) so we can predict what "today" and "yesterday"
+  // mean from the test's perspective.
+  const now = new Date('2026-05-24T15:00:00Z');
 
-  it('returns "just now" within the same minute', () => {
-    const just = new Date('2026-05-24T14:59:45Z').toISOString();
-    expect(formatRelative(just, now)).toBe('just now');
+  it('renders today posts as just the time', () => {
+    // 11:36 UTC = 6:36 AM CDT (still May 24 CT)
+    const iso = '2026-05-24T11:36:00Z';
+    expect(formatPostedAt(iso, now)).toBe('6:36 AM');
   });
 
-  it('returns "Nm ago" for less than an hour', () => {
-    const fifteenMin = new Date('2026-05-24T14:45:00Z').toISOString();
-    expect(formatRelative(fifteenMin, now)).toBe('15m ago');
+  it('renders yesterday posts with the "Yesterday" prefix', () => {
+    // 01:00 UTC May 24 = 8:00 PM CDT May 23 (yesterday)
+    const iso = '2026-05-24T01:00:00Z';
+    expect(formatPostedAt(iso, now)).toBe('Yesterday 8:00 PM');
   });
 
-  it('returns "Nh ago" for less than a day', () => {
-    const threeH = new Date('2026-05-24T12:00:00Z').toISOString();
-    expect(formatRelative(threeH, now)).toBe('3h ago');
+  it('renders older posts as "Month Day, Time"', () => {
+    // 14:00 UTC May 21 = 9:00 AM CDT May 21
+    const iso = '2026-05-21T14:00:00Z';
+    expect(formatPostedAt(iso, now)).toBe('May 21, 9:00 AM');
   });
 
-  it('returns "yesterday" for the previous CT day', () => {
-    // 2026-05-24T01:00:00Z = 2026-05-23 20:00 CT (yesterday in CT)
-    const yesterdayCT = new Date('2026-05-24T01:00:00Z').toISOString();
-    expect(formatRelative(yesterdayCT, now)).toBe('yesterday');
+  it('treats a naive ISO string (no Z) as UTC, not browser-local', () => {
+    // The posts API serializes naive datetimes without a Z suffix.
+    // Without the implicit-UTC fix, this string would be parsed as
+    // browser-local time and yield a different clock value.
+    expect(formatPostedAt('2026-05-24T11:36:00', now)).toBe('6:36 AM');
   });
 
-  it('returns a "Month Day" string for older posts', () => {
-    const old = new Date('2026-05-21T15:00:00Z').toISOString();
-    expect(formatRelative(old, now)).toMatch(/May 21/);
+  it('respects an explicit timezone offset in the input', () => {
+    // 12:00 UTC = 7:00 AM CDT
+    expect(formatPostedAt('2026-05-24T12:00:00+00:00', now)).toBe('7:00 AM');
   });
 });
