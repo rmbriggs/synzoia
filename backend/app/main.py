@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from backend.app import db
 from backend.app.errors import AppError, register_error_handlers
+from backend.app.routes import cron as cron_routes
 from backend.app.routes import posts as posts_routes
 from backend.app.routes import steps as steps_routes
 
@@ -19,6 +20,7 @@ app = FastAPI(title="synzoia")
 register_error_handlers(app)
 app.include_router(steps_routes.router)
 app.include_router(posts_routes.router)
+app.include_router(cron_routes.router)
 
 # Live tables after migrations 0003 (pivot) + 0004 (steps) + 0005 (posts).
 # Hardcoded — never inject user input here; names are interpolated into
