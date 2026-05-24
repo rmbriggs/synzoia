@@ -16,7 +16,7 @@ function renderAt(path: string) {
 }
 
 describe('App smoke', () => {
-  const routes = ['/', '/join', '/style-guide', '/db'];
+  const routes = ['/', '/join', '/style-guide', '/db', '/feed', '/leaderboard'];
 
   for (const route of routes) {
     it(`renders an <h1> at ${route}`, () => {
