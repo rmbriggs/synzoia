@@ -11,16 +11,18 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from backend.app import db
 from backend.app.errors import AppError, register_error_handlers
+from backend.app.routes import posts as posts_routes
 from backend.app.routes import steps as steps_routes
 
 app = FastAPI(title="synzoia")
 register_error_handlers(app)
 app.include_router(steps_routes.router)
+app.include_router(posts_routes.router)
 
-# Live tables after migrations 0003 (pivot) + 0004 (steps).
+# Live tables after migrations 0003 (pivot) + 0004 (steps) + 0005 (posts).
 # Hardcoded — never inject user input here; names are interpolated into
 # raw SQL because Postgres won't accept bind params for identifiers.
-_TABLES = ("profiles", "steps")
+_TABLES = ("profiles", "steps", "posts")
 _DUMP_LIMIT = 100
 
 # Username: 1-30 chars of [A-Za-z0-9_]. Matches the migration's
