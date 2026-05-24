@@ -20,8 +20,9 @@ Ranking is computed in Python after fetching ordered rows.
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Iterable
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
@@ -47,6 +48,37 @@ from backend.app.schemas.steps import (
 # day, comfortably above any monotonic-counter glitch we've actually
 # seen out of HealthKit in testing.
 OUTLIER_CAP = 200_000
+
+# synzoia displays in Central Time. The iOS Shortcut writes step
+# timestamps as UTC (the `ISO 8601` formatter in Shortcuts produces
+# the `Z` form, which psycopg strips to a naive UTC value when
+# inserting into the `timestamp without time zone` column). So every
+# row's stored value is effectively UTC.
+#
+# To bucket by the date a user actually walked (CT, not UTC), we
+# interpret the stored naive value as UTC, convert to CT, and take
+# the date there. Doing the conversion in Python keeps the SQL
+# portable across Postgres + SQLite (the test backend).
+APP_TZ = ZoneInfo("America/Chicago")
+
+
+def _ct_date(ts) -> date:
+    """Convert a stored-as-UTC timestamp (str from SQLite, datetime
+    from Postgres; naive or aware) to its calendar date in CT."""
+    if isinstance(ts, str):
+        ts = datetime.fromisoformat(ts)
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts.astimezone(APP_TZ).date()
+
+
+def _utc_window(start_date: date, end_date: date) -> tuple[datetime, datetime]:
+    """UTC datetime window guaranteed to cover the CT-date range
+    [start_date, end_date] inclusive. Pads by one day on each side
+    so timestamps that cross the CT/UTC boundary aren't missed."""
+    lower = datetime.combine(start_date - timedelta(days=1), datetime.min.time())
+    upper = datetime.combine(end_date + timedelta(days=2), datetime.min.time())
+    return lower, upper
 
 
 class UserNotFound(Exception):
@@ -95,31 +127,37 @@ def _usernames_for(conn: Connection, user_ids: Iterable[int]) -> dict[int, str]:
 def _daily_totals_in_range(
     conn: Connection, start_date: date, end_date: date
 ) -> list[tuple[int, date, int]]:
-    """All (user_id, day, MAX(total)) tuples in [start_date, end_date].
+    """All (user_id, day, MAX(total)) tuples whose CT date falls in
+    [start_date, end_date]. Pulls a UTC-widened window of rows and
+    buckets in Python so timestamps stored as UTC bucket to the date
+    the user actually walked (their CT wall clock), not the date the
+    naive value happens to print as.
+
     Outlier rows (total > OUTLIER_CAP) are filtered BEFORE aggregation,
     so a single bad row can't poison a user's daily total."""
+    lower, upper = _utc_window(start_date, end_date)
     rows = (
         conn.execute(
             text(
-                "SELECT user_id, DATE(timestamp) AS d, MAX(total) AS daily_total "
-                "FROM steps "
-                "WHERE DATE(timestamp) >= :start "
-                "AND DATE(timestamp) <= :end "
-                "AND total <= :cap "
-                "GROUP BY user_id, DATE(timestamp)"
+                "SELECT user_id, timestamp, total FROM steps "
+                "WHERE timestamp >= :lower AND timestamp < :upper "
+                "AND total <= :cap"
             ),
-            {"start": start_date, "end": end_date, "cap": OUTLIER_CAP},
+            {"lower": lower, "upper": upper, "cap": OUTLIER_CAP},
         )
         .mappings()
         .all()
     )
-    out: list[tuple[int, date, int]] = []
+    by_bucket: dict[tuple[int, date], int] = {}
     for r in rows:
-        d = r["d"]
-        if isinstance(d, str):
-            d = date.fromisoformat(d)
-        out.append((int(r["user_id"]), d, int(r["daily_total"])))
-    return out
+        d = _ct_date(r["timestamp"])
+        if d < start_date or d > end_date:
+            continue
+        key = (int(r["user_id"]), d)
+        total = int(r["total"])
+        if total > by_bucket.get(key, -1):
+            by_bucket[key] = total
+    return [(uid, day, total) for (uid, day), total in by_bucket.items()]
 
 
 def _build_leaderboard(
@@ -216,39 +254,36 @@ def get_global_summary(
         conn.execute(text("SELECT COUNT(*) FROM profiles")).scalar() or 0
     )
 
-    # All-time aggregates: walk every (user, day) MAX once.
-    all_daily = (
+    # All-time aggregates: walk every row, bucket by (user, CT day).
+    all_rows = (
         conn.execute(
             text(
-                "SELECT user_id, DATE(timestamp) AS d, MAX(total) AS daily_total "
-                "FROM steps "
-                "WHERE total <= :cap "
-                "GROUP BY user_id, DATE(timestamp)"
+                "SELECT user_id, timestamp, total FROM steps "
+                "WHERE total <= :cap"
             ),
             {"cap": OUTLIER_CAP},
         )
         .mappings()
         .all()
     )
-    total_steps_all_time = sum(int(r["daily_total"]) for r in all_daily)
+    daily_max: dict[tuple[int, date], int] = {}
+    for r in all_rows:
+        d = _ct_date(r["timestamp"])
+        key = (int(r["user_id"]), d)
+        total = int(r["total"])
+        if total > daily_max.get(key, -1):
+            daily_max[key] = total
+    total_steps_all_time = sum(daily_max.values())
 
-    # Best day ever: row with the highest daily_total across all users/days.
-    best_row = max(
-        all_daily,
-        key=lambda r: int(r["daily_total"]),
-        default=None,
-    )
+    # Best day ever: highest (user, CT-day) across the table.
     best_day_ever: BestDayEver | None = None
-    if best_row is not None:
-        best_uid = int(best_row["user_id"])
+    if daily_max:
+        (best_uid, best_d), best_total = max(daily_max.items(), key=lambda kv: kv[1])
         usernames = _usernames_for(conn, [best_uid])
         if best_uid in usernames:
-            d = best_row["d"]
-            if isinstance(d, str):
-                d = date.fromisoformat(d)
             best_day_ever = BestDayEver(
-                date=d,
-                total=int(best_row["daily_total"]),
+                date=best_d,
+                total=best_total,
                 username=usernames[best_uid],
             )
 
@@ -301,16 +336,24 @@ def get_user_daily(
     user_total = totals_by_user.get(user_id, 0)
 
     # Pull the raw posts for that day so the UI can sparkline them.
+    # UTC window + Python-side CT-date filter for the same reason as
+    # _daily_totals_in_range.
+    lower, upper = _utc_window(target_date, target_date)
     post_rows = (
         conn.execute(
             text(
                 "SELECT timestamp, total FROM steps "
                 "WHERE user_id = :uid "
-                "AND DATE(timestamp) = :d "
+                "AND timestamp >= :lower AND timestamp < :upper "
                 "AND total <= :cap "
                 "ORDER BY timestamp ASC, id ASC"
             ),
-            {"uid": user_id, "d": target_date, "cap": OUTLIER_CAP},
+            {
+                "uid": user_id,
+                "lower": lower,
+                "upper": upper,
+                "cap": OUTLIER_CAP,
+            },
         )
         .mappings()
         .all()
@@ -318,6 +361,7 @@ def get_user_daily(
     posts = [
         StepPost(timestamp=r["timestamp"], total=int(r["total"]))
         for r in post_rows
+        if _ct_date(r["timestamp"]) == target_date
     ]
 
     return UserDailyResponse(
@@ -368,28 +412,29 @@ def get_user_summary(
 ) -> UserSummaryResponse:
     user_id, join_date = _lookup_user(conn, username)
 
-    # All (user, day) aggregates once.
-    rows = (
+    # All-time aggregate: walk every row, bucket by (user, CT day).
+    all_rows = (
         conn.execute(
             text(
-                "SELECT user_id, DATE(timestamp) AS d, MAX(total) AS daily_total "
-                "FROM steps "
-                "WHERE total <= :cap "
-                "GROUP BY user_id, DATE(timestamp)"
+                "SELECT user_id, timestamp, total FROM steps "
+                "WHERE total <= :cap"
             ),
             {"cap": OUTLIER_CAP},
         )
         .mappings()
         .all()
     )
+    daily_max: dict[tuple[int, date], int] = {}
+    for r in all_rows:
+        d = _ct_date(r["timestamp"])
+        key = (int(r["user_id"]), d)
+        total = int(r["total"])
+        if total > daily_max.get(key, -1):
+            daily_max[key] = total
 
     totals_by_user: dict[int, int] = defaultdict(int)
     user_days: list[tuple[date, int]] = []
-    for r in rows:
-        uid = int(r["user_id"])
-        d_raw = r["d"]
-        d = date.fromisoformat(d_raw) if isinstance(d_raw, str) else d_raw
-        daily_total = int(r["daily_total"])
+    for (uid, d), daily_total in daily_max.items():
         totals_by_user[uid] += daily_total
         if uid == user_id:
             user_days.append((d, daily_total))
