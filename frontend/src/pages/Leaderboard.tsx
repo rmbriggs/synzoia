@@ -12,6 +12,7 @@ import {
   type DailyTotal,
   type LeaderboardEntry,
 } from '@/api/steps';
+import { localDate } from '@/lib/dates';
 
 const TABS = [
   { key: 'today', label: 'Today' },
@@ -114,9 +115,10 @@ function LeaderboardList({
 }
 
 function TodayPanel() {
+  const today = localDate();
   const query = useQuery({
-    queryKey: ['steps', 'daily'],
-    queryFn: () => getGlobalDaily(),
+    queryKey: ['steps', 'daily', today],
+    queryFn: () => getGlobalDaily(today),
     staleTime: 30_000,
   });
 

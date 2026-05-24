@@ -130,9 +130,10 @@ describe('Feed page', () => {
       expect(fetchMock).toHaveBeenCalled();
     });
     const url = fetchMock.mock.calls[0][0] as string;
-    // VITE_API_BASE_URL may prepend an origin in test env; the
-    // important bit is the path + lack of date query.
-    expect(url).toMatch(/\/steps\/daily$/);
+    // The frontend passes the user's local YYYY-MM-DD as ?date= so
+    // that the user's "Today" matches their wall clock, not UTC.
+    // See lib/dates.localDate().
+    expect(url).toMatch(/\/steps\/daily\?date=\d{4}-\d{2}-\d{2}$/);
   });
 });
 

@@ -6,6 +6,7 @@ import StyleGuide from '@/pages/StyleGuide';
 import DbExplorer from '@/pages/DbExplorer';
 import Feed from '@/pages/Feed';
 import Leaderboard from '@/pages/Leaderboard';
+import Profile from '@/pages/Profile';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
       <Route element={<AppLayout />}>
         <Route path="/feed" element={<Feed />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="/u/:username" element={<Profile />} />
         <Route path="/db" element={<DbExplorer />} />
       </Route>
     </Routes>

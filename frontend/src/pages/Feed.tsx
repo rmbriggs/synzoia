@@ -10,6 +10,7 @@ import {
   type GlobalDailyResponse,
   type LeaderboardEntry,
 } from '@/api/steps';
+import { localDate } from '@/lib/dates';
 
 function formatNumber(n: number): string {
   return n.toLocaleString();
@@ -111,9 +112,10 @@ function ErrorCard({
 }
 
 export default function Feed() {
+  const today = localDate();
   const query = useQuery({
-    queryKey: ['steps', 'daily'],
-    queryFn: () => getGlobalDaily(),
+    queryKey: ['steps', 'daily', today],
+    queryFn: () => getGlobalDaily(today),
     staleTime: 30_000,
   });
 
