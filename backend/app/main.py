@@ -1,5 +1,6 @@
 import re
 import secrets
+import string
 from datetime import datetime
 from typing import Any
 
@@ -29,6 +30,22 @@ _DUMP_LIMIT = 100
 # char_length(username) between 1 and 30 check and gives a readable
 # 422 message instead of letting the DB reject it.
 _USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{1,30}$")
+
+
+def _generate_token() -> str:
+    """4 groups of 4 uppercase letters joined by dashes, e.g.
+    'AHDE-VHSE-CNCX-HELJ'. 19 chars total, ~75 bits of entropy —
+    long enough that collisions are not a practical concern and
+    short enough that the user can re-type from memory if needed.
+
+    Stored with dashes; the iOS Shortcut pastes the exact string
+    the website displayed, so auth is a direct string match — no
+    normalization required."""
+    groups = [
+        "".join(secrets.choice(string.ascii_uppercase) for _ in range(4))
+        for _ in range(4)
+    ]
+    return "-".join(groups)
 
 
 @app.get("/api/health")
@@ -140,8 +157,7 @@ def create_profile(req: CreateProfileRequest) -> ProfileResponse:
             "Username must be 1-30 characters of letters, digits, or underscore.",
         )
 
-    # 32 hex chars = 128 bits of entropy; fits the 16-128 char constraint.
-    token = secrets.token_hex(16)
+    token = _generate_token()
 
     try:
         with db.get_engine().begin() as conn:

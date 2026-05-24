@@ -45,8 +45,8 @@ def test_create_profile_returns_username_token_and_join_date(monkeypatch):
     assert response.status_code == 201
     body = response.json()
     assert body["username"] == "micah"
-    # 32 hex chars (secrets.token_hex(16)).
-    assert re.fullmatch(r"[0-9a-f]{32}", body["token"])
+    # 4 groups of 4 uppercase letters joined by dashes (XXXX-XXXX-XXXX-XXXX).
+    assert re.fullmatch(r"[A-Z]{4}-[A-Z]{4}-[A-Z]{4}-[A-Z]{4}", body["token"])
     assert body["join_date"]  # populated by the DB default
 
 
