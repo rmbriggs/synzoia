@@ -39,7 +39,9 @@ def _engine_with_users(seed_posts: bool = False):
                 "user_id integer not null, "
                 "username text not null, "
                 "type text not null, "
-                "timestamp text not null)"
+                "timestamp text not null, "
+                "details text, "
+                "body text)"
             )
         )
         conn.execute(
@@ -246,3 +248,30 @@ def test_list_feed_empty_when_no_posts(monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == {"posts": []}
+
+
+def test_post_rejects_system_only_types(monkeypatch):
+    """`steps_milestone` and `leaderboard_recap` are system-generated
+    types (the milestone helper + daily-recap cron own them). A regular
+    POST /api/posts must reject them at the Pydantic boundary so users
+    can't spoof milestones or recaps."""
+    engine = _engine_with_users()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+    client = TestClient(main.app)
+    headers = {"Authorization": f"Bearer {ALICE_TOKEN}"}
+
+    for forbidden in ("steps_milestone", "leaderboard_recap"):
+        response = client.post(
+            "/api/posts",
+            json={"type": forbidden, "timestamp": "2026-05-23T08:00:00"},
+            headers=headers,
+        )
+        assert response.status_code == 422, forbidden
+
+    # Sanity: user-submittable types still work.
+    ok = client.post(
+        "/api/posts",
+        json={"type": "steps", "timestamp": "2026-05-23T08:00:00"},
+        headers=headers,
+    )
+    assert ok.status_code == 201

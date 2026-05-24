@@ -153,11 +153,18 @@ def create_step(
     """POST /api/steps — write a step snapshot on behalf of the
     Bearer-token user. Called by the iOS Shortcut every time Apple
     Health step data is synced. `user_id` is resolved from the token,
-    NEVER from the request body (per CLAUDE.md)."""
+    NEVER from the request body (per CLAUDE.md). Also fires
+    milestone-detection in the same transaction."""
     with db.get_engine().begin() as conn:
-        return svc.create_step(
+        response = svc.create_step(
             conn,
             user_id=user_id,
             timestamp=req.timestamp,
             total=req.total,
         )
+        svc.detect_and_insert_milestone(
+            conn,
+            user_id=user_id,
+            timestamp=req.timestamp,
+        )
+        return response

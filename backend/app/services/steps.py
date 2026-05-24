@@ -19,9 +19,10 @@ Ranking is computed in Python after fetching ordered rows.
 
 from __future__ import annotations
 
+import json as _json
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
-from typing import Iterable
+from typing import Iterable, Optional
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import bindparam, text
@@ -48,6 +49,11 @@ from backend.app.schemas.steps import (
 # day, comfortably above any monotonic-counter glitch we've actually
 # seen out of HealthKit in testing.
 OUTLIER_CAP = 200_000
+
+# Step counts at which the feed celebrates the user's day. Per-day,
+# per-user, per-threshold idempotent — once crossed today, the same
+# threshold won't fire again until tomorrow CT.
+MILESTONE_THRESHOLDS = (1000, 5000, 10000)
 
 # synzoia displays in Central Time. The iOS Shortcut writes step
 # timestamps as UTC (the `ISO 8601` formatter in Shortcuts produces
@@ -488,3 +494,119 @@ def create_step(
         timestamp=row["timestamp"],
         total=int(row["total"]),
     )
+
+
+def detect_and_insert_milestone(
+    conn: Connection,
+    user_id: int,
+    timestamp: datetime,
+) -> Optional[int]:
+    """After inserting a step row, check whether the user just crossed
+    a milestone threshold for the CT day this step bucketed to. If yes,
+    insert ONE post for the HIGHEST newly-crossed threshold and return
+    the new post's id. Otherwise return None.
+
+    Idempotent: existing milestone posts for the same user on the same
+    CT date short-circuit re-firing of their thresholds. So a write
+    that takes the user from 5500 to 6000 doesn't re-fire the 5k post."""
+    ct_date = _ct_date(timestamp)
+    lower, upper = _utc_window(ct_date, ct_date)
+
+    max_today_row = (
+        conn.execute(
+            text(
+                "SELECT MAX(total) AS m FROM steps "
+                "WHERE user_id = :uid "
+                "AND timestamp >= :lower AND timestamp < :upper "
+                "AND total <= :cap"
+            ),
+            {"uid": user_id, "lower": lower, "upper": upper, "cap": OUTLIER_CAP},
+        )
+        .mappings()
+        .first()
+    )
+    max_today = int(max_today_row["m"] or 0)
+
+    # Already-crossed thresholds for this user on this CT date.
+    # Scope the scan to today's UTC window — without that bound we'd
+    # re-scan a user's lifetime of milestone posts on every step write.
+    # The Python loop below still re-checks `details.date` for safety
+    # (the window can include rows from the prior/next UTC day).
+    already_rows = (
+        conn.execute(
+            text(
+                "SELECT details FROM posts "
+                "WHERE type = 'steps_milestone' "
+                "AND user_id = :uid "
+                "AND timestamp >= :lower AND timestamp < :upper"
+            ),
+            {"uid": user_id, "lower": lower, "upper": upper},
+        )
+        .mappings()
+        .all()
+    )
+    # Find the highest threshold already posted for this user on this CT
+    # date. All thresholds <= that value are implicitly already crossed —
+    # you can't reach 5k without passing 1k first — so treat every
+    # threshold up to and including that value as seen.
+    highest_already: int = 0
+    for r in already_rows:
+        raw = r["details"]
+        if raw is None:
+            continue
+        d = _json.loads(raw) if isinstance(raw, str) else raw
+        if d.get("date") == ct_date.isoformat() and "threshold" in d:
+            t = int(d["threshold"])
+            if t > highest_already:
+                highest_already = t
+
+    # Every threshold at or below highest_already is considered crossed.
+    already_crossed: set = {
+        t for t in MILESTONE_THRESHOLDS if t <= highest_already
+    }
+
+    newly_crossed = [
+        t
+        for t in MILESTONE_THRESHOLDS
+        if t <= max_today and t not in already_crossed
+    ]
+    if not newly_crossed:
+        return None
+
+    threshold = max(newly_crossed)
+    username_row = (
+        conn.execute(
+            text("SELECT username FROM profiles WHERE id = :uid"),
+            {"uid": user_id},
+        )
+        .mappings()
+        .first()
+    )
+    if username_row is None:
+        return None
+    username = username_row["username"]
+
+    details_str = _json.dumps(
+        {"threshold": threshold, "date": ct_date.isoformat()}
+    )
+    body = f"hit {threshold:,} steps"
+
+    row = (
+        conn.execute(
+            text(
+                "INSERT INTO posts (user_id, username, type, timestamp, details, body) "
+                "VALUES (:uid, :u, 'steps_milestone', :ts, :details, :body) "
+                "RETURNING id"
+            ),
+            {
+                "uid": user_id,
+                "u": username,
+                "ts": timestamp,
+                "details": details_str,
+                "body": body,
+            },
+        )
+        .mappings()
+        .one()
+    )
+    return int(row["id"])

@@ -65,7 +65,7 @@ def create_post(
             text(
                 "INSERT INTO posts (user_id, username, type, timestamp) "
                 "VALUES (:user_id, :username, :type, :timestamp) "
-                "RETURNING id, user_id, username, type, timestamp"
+                "RETURNING id, user_id, username, type, timestamp, details, body"
             ),
             {
                 "user_id": user_id,
@@ -83,6 +83,8 @@ def create_post(
         username=row["username"],
         type=row["type"],
         timestamp=row["timestamp"],
+        details=row["details"],
+        body=row["body"],
     )
 
 
@@ -110,7 +112,7 @@ def list_feed(
         rows = (
             conn.execute(
                 text(
-                    "SELECT id, user_id, username, type, timestamp "
+                    "SELECT id, user_id, username, type, timestamp, details, body "
                     "FROM posts "
                     "ORDER BY timestamp DESC, id DESC "
                     "LIMIT :limit"
@@ -124,7 +126,7 @@ def list_feed(
         rows = (
             conn.execute(
                 text(
-                    "SELECT id, user_id, username, type, timestamp "
+                    "SELECT id, user_id, username, type, timestamp, details, body "
                     "FROM posts "
                     "WHERE type = :type "
                     "ORDER BY timestamp DESC, id DESC "
@@ -144,6 +146,8 @@ def list_feed(
                 username=r["username"],
                 type=r["type"],
                 timestamp=r["timestamp"],
+                details=r["details"],
+                body=r["body"],
             )
             for r in rows
         ]
@@ -173,7 +177,7 @@ def list_user_feed(
     rows = (
         conn.execute(
             text(
-                "SELECT id, user_id, username, type, timestamp "
+                "SELECT id, user_id, username, type, timestamp, details, body "
                 "FROM posts "
                 "WHERE user_id = :uid "
                 "ORDER BY timestamp DESC, id DESC "
@@ -193,6 +197,8 @@ def list_user_feed(
                 username=r["username"],
                 type=r["type"],
                 timestamp=r["timestamp"],
+                details=r["details"],
+                body=r["body"],
             )
             for r in rows
         ]

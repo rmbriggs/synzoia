@@ -44,6 +44,18 @@ def _engine_with_users():
         )
         conn.execute(
             text(
+                "CREATE TABLE posts ("
+                "id integer primary key autoincrement, "
+                "user_id integer not null, "
+                "username text not null, "
+                "type text not null, "
+                "timestamp text not null, "
+                "details text, "
+                "body text)"
+            )
+        )
+        conn.execute(
+            text(
                 "INSERT INTO profiles (username, token, join_date) "
                 "VALUES (:u, :t, :j)"
             ),
@@ -167,3 +179,159 @@ def test_post_steps_with_negative_total_returns_422(monkeypatch):
 
     assert response.status_code == 422
     assert _count_steps(engine, user_id=1) == 0
+
+
+def _engine_with_users_and_posts():
+    """Returns an engine with profiles, steps, and posts tables
+    (post-migration-0007 shape) so milestone-detection tests can
+    observe what got inserted. The posts table is now included in
+    _engine_with_users() since detect_and_insert_milestone requires it."""
+    return _engine_with_users()
+
+
+def _milestone_rows(engine, user_id: int):
+    with engine.connect() as conn:
+        return list(
+            conn.execute(
+                text(
+                    "SELECT id, type, body, details FROM posts "
+                    "WHERE type = 'steps_milestone' AND user_id = :uid "
+                    "ORDER BY id ASC"
+                ),
+                {"uid": user_id},
+            )
+            .mappings()
+            .all()
+        )
+
+
+def test_step_write_below_1k_inserts_no_milestone(monkeypatch):
+    engine = _engine_with_users_and_posts()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    response = TestClient(main.app).post(
+        "/api/steps",
+        json={"timestamp": "2026-05-23T18:00:00", "total": 900},
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+
+    assert response.status_code == 201
+    assert _milestone_rows(engine, user_id=1) == []
+
+
+def test_step_write_crossing_1k_inserts_one_milestone(monkeypatch):
+    engine = _engine_with_users_and_posts()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    response = TestClient(main.app).post(
+        "/api/steps",
+        json={"timestamp": "2026-05-23T18:00:00", "total": 1200},
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+
+    assert response.status_code == 201
+    rows = _milestone_rows(engine, user_id=1)
+    assert len(rows) == 1
+    assert rows[0]["body"] == "hit 1,000 steps"
+    # details is JSON text in SQLite; parse to check
+    import json as _json
+    assert _json.loads(rows[0]["details"]) == {
+        "threshold": 1000,
+        "date": "2026-05-23",
+    }
+
+
+def test_step_write_zero_to_12k_in_one_shot_picks_highest_only(monkeypatch):
+    engine = _engine_with_users_and_posts()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    response = TestClient(main.app).post(
+        "/api/steps",
+        json={"timestamp": "2026-05-23T18:00:00", "total": 12000},
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+
+    assert response.status_code == 201
+    rows = _milestone_rows(engine, user_id=1)
+    assert len(rows) == 1
+    assert rows[0]["body"] == "hit 10,000 steps"
+
+
+def test_step_write_above_5k_twice_only_inserts_one_milestone(monkeypatch):
+    engine = _engine_with_users_and_posts()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+    client = TestClient(main.app)
+
+    first = client.post(
+        "/api/steps",
+        json={"timestamp": "2026-05-23T18:00:00", "total": 5500},
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+    second = client.post(
+        "/api/steps",
+        json={"timestamp": "2026-05-23T20:00:00", "total": 6800},
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    rows = _milestone_rows(engine, user_id=1)
+    # First write crosses 1k + 5k → posts highest (5k). Second crosses
+    # nothing new → no post. So exactly one row.
+    assert len(rows) == 1
+    assert rows[0]["body"] == "hit 5,000 steps"
+
+
+def test_step_write_5k_then_12k_fires_10k_but_does_not_refire_5k(monkeypatch):
+    """The implicit-watermark invariant: once 5k is posted, all
+    thresholds <= 5k are already crossed for that day. A subsequent
+    jump to 12k should fire 10k only — never re-fire 5k or fire 1k
+    after the fact."""
+    engine = _engine_with_users_and_posts()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+    client = TestClient(main.app)
+
+    first = client.post(
+        "/api/steps",
+        json={"timestamp": "2026-05-23T18:00:00", "total": 5500},
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+    second = client.post(
+        "/api/steps",
+        json={"timestamp": "2026-05-23T20:00:00", "total": 12000},
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    rows = _milestone_rows(engine, user_id=1)
+    assert [r["body"] for r in rows] == [
+        "hit 5,000 steps",
+        "hit 10,000 steps",
+    ]
+
+
+def test_step_write_milestones_isolated_per_user(monkeypatch):
+    """Alice and Bob both posting must produce milestones attributed
+    to their own user_id, never each other's."""
+    engine = _engine_with_users_and_posts()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+    client = TestClient(main.app)
+
+    a = client.post(
+        "/api/steps",
+        json={"timestamp": "2026-05-23T18:00:00", "total": 2000},
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+    b = client.post(
+        "/api/steps",
+        json={"timestamp": "2026-05-23T19:00:00", "total": 7000},
+        headers={"Authorization": f"Bearer {BOB_TOKEN}"},
+    )
+
+    assert a.status_code == 201
+    assert b.status_code == 201
+    alice_rows = _milestone_rows(engine, user_id=1)
+    bob_rows = _milestone_rows(engine, user_id=2)
+    assert len(alice_rows) == 1 and alice_rows[0]["body"] == "hit 1,000 steps"
+    assert len(bob_rows) == 1 and bob_rows[0]["body"] == "hit 5,000 steps"
