@@ -5,76 +5,105 @@ import Card from '@/components/ui/AppCard';
 import EmptyState from '@/components/ui/EmptyState';
 import PageHeader from '@/components/ui/PageHeader';
 import { ApiError } from '@/api/client';
-import {
-  getGlobalDaily,
-  type GlobalDailyResponse,
-  type LeaderboardEntry,
-} from '@/api/steps';
-import { currentDate, formatDateLong } from '@/lib/dates';
+import { getFeed, type FeedPost } from '@/api/posts';
+import { formatRelative } from '@/lib/dates';
 
 function formatNumber(n: number): string {
   return n.toLocaleString();
 }
 
-const formatHeadingDate = formatDateLong;
-
-function StatStrip({ data }: { data: GlobalDailyResponse }) {
+function MilestonePost({ post }: { post: FeedPost }) {
   return (
-    <div className="grid grid-cols-2 gap-4">
-      <Card>
-        <div className="label-mono text-muted-foreground">Steps today</div>
-        <div className="font-display text-3xl mt-1">
-          {formatNumber(data.total_steps)}
-        </div>
-      </Card>
-      <Card>
-        <div className="label-mono text-muted-foreground">Posting today</div>
-        <div className="font-display text-3xl mt-1">
-          {formatNumber(data.participating_users)}
-        </div>
-      </Card>
-    </div>
+    <Card>
+      <div className="flex items-baseline gap-3">
+        <Link
+          to={`/u/${encodeURIComponent(post.username)}`}
+          className="font-medium hover:text-primary transition-colors"
+        >
+          @{post.username}
+        </Link>
+        <span className="text-muted-foreground">
+          {post.body ?? 'hit a milestone'}
+        </span>
+        <span className="label-mono text-muted-foreground ml-auto">
+          {formatRelative(post.timestamp)}
+        </span>
+      </div>
+    </Card>
   );
 }
 
-function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
+function RecapPost({ post }: { post: FeedPost }) {
+  const top = post.details?.top ?? [];
   return (
-    <li className="flex items-center gap-4 py-3 border-b border-border/60 last:border-b-0">
-      <span
-        className="label-mono w-10 shrink-0 text-muted-foreground"
-        aria-label={`Rank ${entry.rank}`}
-      >
-        #{entry.rank}
-      </span>
-      <Link
-        to={`/u/${encodeURIComponent(entry.username)}`}
-        className="font-medium hover:text-primary transition-colors flex-1 min-w-0 truncate"
-      >
-        {entry.username}
-      </Link>
-      <span className="font-mono tabular-nums">
-        {formatNumber(entry.total)}
-      </span>
-    </li>
-  );
-}
-
-function LeaderboardSkeleton() {
-  return (
-    <Card className="mt-4">
-      <ul>
-        {Array.from({ length: 5 }).map((_, i) => (
+    <Card className="bg-accent/10">
+      <div className="flex items-baseline justify-between gap-3 mb-3">
+        <h3 className="font-display text-xl tracking-tight">
+          Yesterday&rsquo;s top 3
+        </h3>
+        <span className="label-mono text-muted-foreground">
+          {formatRelative(post.timestamp)}
+        </span>
+      </div>
+      <ol className="space-y-2">
+        {top.map((entry, i) => (
           <li
-            key={i}
-            className="flex items-center gap-4 py-3 border-b border-border/60 last:border-b-0"
+            key={entry.username}
+            className="flex items-baseline gap-3"
           >
-            <span className="h-3 w-8 bg-muted/60 rounded animate-pulse" />
-            <span className="h-3 flex-1 bg-muted/60 rounded animate-pulse" />
-            <span className="h-3 w-16 bg-muted/60 rounded animate-pulse" />
+            <span className="label-mono w-6 shrink-0 text-muted-foreground">
+              #{i + 1}
+            </span>
+            <Link
+              to={`/u/${encodeURIComponent(entry.username)}`}
+              className="font-medium hover:text-primary transition-colors flex-1 min-w-0 truncate"
+            >
+              @{entry.username}
+            </Link>
+            <span className="font-mono tabular-nums">
+              {formatNumber(entry.total)}
+            </span>
           </li>
         ))}
-      </ul>
+      </ol>
     </Card>
+  );
+}
+
+function GenericPost({ post }: { post: FeedPost }) {
+  return (
+    <Card>
+      <div className="flex items-baseline gap-3">
+        <Link
+          to={`/u/${encodeURIComponent(post.username)}`}
+          className="font-medium hover:text-primary transition-colors"
+        >
+          @{post.username}
+        </Link>
+        <span className="text-muted-foreground">
+          {post.body ?? `posted (${post.type})`}
+        </span>
+        <span className="label-mono text-muted-foreground ml-auto">
+          {formatRelative(post.timestamp)}
+        </span>
+      </div>
+    </Card>
+  );
+}
+
+function FeedSkeleton() {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Card key={i}>
+          <div className="flex items-baseline gap-3">
+            <span className="h-3 w-20 bg-muted/60 rounded animate-pulse" />
+            <span className="h-3 flex-1 bg-muted/60 rounded animate-pulse" />
+            <span className="h-3 w-12 bg-muted/60 rounded animate-pulse" />
+          </div>
+        </Card>
+      ))}
+    </div>
   );
 }
 
@@ -92,7 +121,7 @@ function ErrorCard({
         ? error.message
         : 'Could not load the feed.';
   return (
-    <Card className="mt-4 border-destructive/40 bg-destructive/5">
+    <Card className="border-destructive/40 bg-destructive/5">
       <p className="text-destructive text-sm">{message}</p>
       <Button variant="secondary" className="mt-3" onClick={onRetry}>
         Try again
@@ -102,56 +131,39 @@ function ErrorCard({
 }
 
 export default function Feed() {
-  const today = currentDate();
   const query = useQuery({
-    queryKey: ['steps', 'daily', today],
-    queryFn: () => getGlobalDaily(today),
+    queryKey: ['posts', 'feed', 50],
+    queryFn: () => getFeed(50),
     staleTime: 30_000,
   });
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Today"
-        description={
-          query.data ? formatHeadingDate(query.data.date) : 'Public step feed.'
-        }
+        title="Feed"
+        description="Recent milestones and recaps."
       />
 
       {query.isPending ? (
-        <>
-          <div className="grid grid-cols-2 gap-4">
-            <Card>
-              <div className="h-3 w-20 bg-muted/60 rounded animate-pulse" />
-              <div className="h-8 w-24 bg-muted/60 rounded mt-2 animate-pulse" />
-            </Card>
-            <Card>
-              <div className="h-3 w-20 bg-muted/60 rounded animate-pulse" />
-              <div className="h-8 w-24 bg-muted/60 rounded mt-2 animate-pulse" />
-            </Card>
-          </div>
-          <LeaderboardSkeleton />
-        </>
+        <FeedSkeleton />
       ) : query.isError ? (
         <ErrorCard error={query.error} onRetry={() => query.refetch()} />
+      ) : query.data.posts.length === 0 ? (
+        <Card>
+          <EmptyState message="No posts yet. Start walking." />
+        </Card>
       ) : (
-        <>
-          <StatStrip data={query.data} />
-          <Card>
-            <h2 className="font-display text-2xl tracking-tight mb-2">
-              Leaderboard
-            </h2>
-            {query.data.leaderboard.length === 0 ? (
-              <EmptyState message="No one has posted yet today." />
-            ) : (
-              <ul>
-                {query.data.leaderboard.map((entry) => (
-                  <LeaderboardRow key={entry.username} entry={entry} />
-                ))}
-              </ul>
-            )}
-          </Card>
-        </>
+        <div className="space-y-4">
+          {query.data.posts.map((post) => {
+            if (post.type === 'leaderboard_recap') {
+              return <RecapPost key={post.id} post={post} />;
+            }
+            if (post.type === 'steps_milestone') {
+              return <MilestonePost key={post.id} post={post} />;
+            }
+            return <GenericPost key={post.id} post={post} />;
+          })}
+        </div>
       )}
     </div>
   );

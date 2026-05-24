@@ -24,120 +24,143 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('Feed page', () => {
-  it('renders the leaderboard and totals after a successful fetch', async () => {
+beforeEach(() => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+function jsonResponse(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+describe('Feed page (post stream)', () => {
+  it('renders milestone posts with username + body + relative time', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          date: '2026-05-23',
-          total_steps: 21000,
-          participating_users: 2,
-          leaderboard: [
-            { rank: 1, username: 'bob', total: 12000 },
-            { rank: 2, username: 'alice', total: 9000 },
-          ],
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
+      jsonResponse({
+        posts: [
+          {
+            id: 1,
+            user_id: 1,
+            username: 'micah',
+            type: 'steps_milestone',
+            timestamp: new Date().toISOString(),
+            details: { threshold: 5000, date: '2026-05-23' },
+            body: 'hit 5,000 steps',
+          },
+        ],
+      }),
     );
 
     renderFeed();
 
     await waitFor(() => {
-      expect(screen.getByText('21,000')).toBeInTheDocument();
+      expect(screen.getByText('hit 5,000 steps')).toBeInTheDocument();
     });
-    expect(screen.getByText('2')).toBeInTheDocument();
-    expect(screen.getByText('bob')).toBeInTheDocument();
-    expect(screen.getByText('alice')).toBeInTheDocument();
-    expect(screen.getByText('12,000')).toBeInTheDocument();
-    expect(screen.getByText('9,000')).toBeInTheDocument();
-    expect(screen.getByText('#1')).toBeInTheDocument();
-    expect(screen.getByText('#2')).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: '@micah' });
+    expect(link).toHaveAttribute('href', '/u/micah');
   });
 
-  it('shows the empty state when no one has posted today', async () => {
+  it('renders a recap card with the top-3 list', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          date: '2026-05-23',
-          total_steps: 0,
-          participating_users: 0,
-          leaderboard: [],
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
+      jsonResponse({
+        posts: [
+          {
+            id: 7,
+            user_id: 1,
+            username: 'micah',
+            type: 'leaderboard_recap',
+            timestamp: new Date().toISOString(),
+            details: {
+              date: '2026-05-23',
+              top: [
+                { username: 'micah', total: 12000 },
+                { username: 'angela', total: 9500 },
+                { username: 'bob', total: 4200 },
+              ],
+            },
+            body: "Yesterday's top 3",
+          },
+        ],
+      }),
+    );
+
+    renderFeed();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Yesterday/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText('12,000')).toBeInTheDocument();
+    expect(screen.getByText('9,500')).toBeInTheDocument();
+    expect(screen.getByText('4,200')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: '@angela' }),
+    ).toHaveAttribute('href', '/u/angela');
+  });
+
+  it('shows the empty state when no posts have been written', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      jsonResponse({ posts: [] }),
     );
 
     renderFeed();
 
     await waitFor(() => {
       expect(
-        screen.getByText('No one has posted yet today.'),
+        screen.getByText('No posts yet. Start walking.'),
       ).toBeInTheDocument();
     });
   });
 
-  it('shows an error card with a retry button when the request fails', async () => {
+  it('shows an error card with retry on failed fetch', async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response('boom', { status: 500 }));
+
+    renderFeed();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Try again' }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('renders milestone + recap together in a mixed feed', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response('boom', { status: 500 }),
+      jsonResponse({
+        posts: [
+          {
+            id: 9,
+            user_id: 1,
+            username: 'micah',
+            type: 'leaderboard_recap',
+            timestamp: new Date().toISOString(),
+            details: {
+              date: '2026-05-23',
+              top: [{ username: 'micah', total: 9000 }],
+            },
+            body: "Yesterday's top 3",
+          },
+          {
+            id: 8,
+            user_id: 2,
+            username: 'angela',
+            type: 'steps_milestone',
+            timestamp: new Date().toISOString(),
+            details: { threshold: 10000, date: '2026-05-23' },
+            body: 'hit 10,000 steps',
+          },
+        ],
+      }),
     );
 
     renderFeed();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+      expect(screen.getByText('hit 10,000 steps')).toBeInTheDocument();
     });
+    expect(screen.getByText(/Yesterday/i)).toBeInTheDocument();
   });
-
-  it('links each leaderboard row to /u/:username', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          date: '2026-05-23',
-          total_steps: 9000,
-          participating_users: 1,
-          leaderboard: [{ rank: 1, username: 'alice', total: 9000 }],
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
-    );
-
-    renderFeed();
-
-    await waitFor(() => {
-      const link = screen.getByRole('link', { name: 'alice' });
-      expect(link).toHaveAttribute('href', '/u/alice');
-    });
-  });
-
-  it('calls the daily endpoint with no date param so the server defaults to today', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          date: '2026-05-23',
-          total_steps: 0,
-          participating_users: 0,
-          leaderboard: [],
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
-    );
-    globalThis.fetch = fetchMock;
-
-    renderFeed();
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalled();
-    });
-    const url = fetchMock.mock.calls[0][0] as string;
-    // The frontend passes the user's local YYYY-MM-DD as ?date= so
-    // that the user's "Today" matches their wall clock, not UTC.
-    // See lib/dates.localDate().
-    expect(url).toMatch(/\/steps\/daily\?date=\d{4}-\d{2}-\d{2}$/);
-  });
-});
-
-beforeEach(() => {
-  // Quiet the React Query devtools console noise in CI.
-  vi.spyOn(console, 'error').mockImplementation(() => {});
 });
