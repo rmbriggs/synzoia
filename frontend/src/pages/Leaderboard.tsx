@@ -12,7 +12,7 @@ import {
   type DailyTotal,
   type LeaderboardEntry,
 } from '@/api/steps';
-import { localDate } from '@/lib/dates';
+import { currentDate } from '@/lib/dates';
 
 const TABS = [
   { key: 'today', label: 'Today' },
@@ -24,12 +24,15 @@ function formatNumber(n: number): string {
 }
 
 function formatHeadingDate(iso: string): string {
+  // Leaderboard's heading drops the year (already implied by the
+  // current week/today context) — use the existing helper trimmed.
   const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', {
     month: 'long',
     day: 'numeric',
   });
 }
+
 
 function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
   return (
@@ -115,7 +118,7 @@ function LeaderboardList({
 }
 
 function TodayPanel() {
-  const today = localDate();
+  const today = currentDate();
   const query = useQuery({
     queryKey: ['steps', 'daily', today],
     queryFn: () => getGlobalDaily(today),

@@ -7,8 +7,9 @@ All cleaning, aggregation, and ranking lives in
 and the route layer never grows business logic.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query, status
 
@@ -30,11 +31,16 @@ from backend.app.services import steps as svc
 router = APIRouter(prefix="/api/steps", tags=["steps"])
 
 
+# synzoia anchors all dates to Central Time. The iOS Shortcut writes
+# step timestamps in local (CT) time, so bucketing the default "today"
+# the same way keeps no-date-param queries consistent with what got
+# posted. The frontend also passes ?date= as a CT date.
+APP_TIMEZONE = ZoneInfo("America/Chicago")
+
+
 def _today() -> date:
-    """UTC today. The steps table stores timezone-naive timestamps, so
-    UTC is the only consistent bucket we can choose. Revisit when the
-    write path lands and we have per-post timezone info."""
-    return date.today()
+    """Today's date in the app timezone (Central Time)."""
+    return datetime.now(APP_TIMEZONE).date()
 
 
 def _iso_monday(d: date) -> date:

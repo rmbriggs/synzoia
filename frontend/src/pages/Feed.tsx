@@ -10,23 +10,13 @@ import {
   type GlobalDailyResponse,
   type LeaderboardEntry,
 } from '@/api/steps';
-import { localDate } from '@/lib/dates';
+import { currentDate, formatDateLong } from '@/lib/dates';
 
 function formatNumber(n: number): string {
   return n.toLocaleString();
 }
 
-function formatHeadingDate(iso: string): string {
-  // Render the API's YYYY-MM-DD as the user's locale date — friendlier
-  // than the raw ISO string. Treats the value as a date, not a UTC
-  // timestamp, to avoid timezone drift past midnight.
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  });
-}
+const formatHeadingDate = formatDateLong;
 
 function StatStrip({ data }: { data: GlobalDailyResponse }) {
   return (
@@ -112,7 +102,7 @@ function ErrorCard({
 }
 
 export default function Feed() {
-  const today = localDate();
+  const today = currentDate();
   const query = useQuery({
     queryKey: ['steps', 'daily', today],
     queryFn: () => getGlobalDaily(today),

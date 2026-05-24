@@ -12,29 +12,18 @@ import {
   type UserWeeklyResponse,
   type UserDailyResponse,
 } from '@/api/steps';
-import { localDate } from '@/lib/dates';
+import {
+  currentDate,
+  formatDateMedium,
+  formatTimestampDate,
+} from '@/lib/dates';
 
 function formatNumber(n: number): string {
   return n.toLocaleString();
 }
 
-function formatHeadingDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function formatJoinDate(iso: string): string {
-  const dt = new Date(iso);
-  return dt.toLocaleDateString(undefined, {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
+const formatHeadingDate = formatDateMedium;
+const formatJoinDate = formatTimestampDate;
 
 function StatCard({
   label,
@@ -240,7 +229,7 @@ export default function Profile() {
     retry: false,
   });
 
-  const today = localDate();
+  const today = currentDate();
   const daily = useQuery({
     queryKey: ['steps', 'users', username, 'daily', today],
     queryFn: () => getUserDaily(username, today),

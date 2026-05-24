@@ -191,7 +191,8 @@ def test_user_endpoints_404_on_unknown_username(monkeypatch):
 
 
 def test_global_daily_defaults_to_today_when_no_date_param(monkeypatch):
-    from datetime import date as _date
+    from datetime import datetime as _datetime
+    from zoneinfo import ZoneInfo
 
     engine = _engine_with_data()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
@@ -200,7 +201,12 @@ def test_global_daily_defaults_to_today_when_no_date_param(monkeypatch):
 
     assert response.status_code == 200
     body = response.json()
-    # The default should be today (whatever today is).
-    assert body["date"] == _date.today().isoformat()
+    # The endpoint's "today" is Central Time (synzoia anchors all date
+    # display to America/Chicago). On UTC-only CI hosts, comparing
+    # against date.today() (which is UTC) drifts across midnight.
+    expected_today = (
+        _datetime.now(ZoneInfo("America/Chicago")).date().isoformat()
+    )
+    assert body["date"] == expected_today
     assert "leaderboard" in body
     assert "total_steps" in body
