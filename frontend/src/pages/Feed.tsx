@@ -1,110 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import Card from '@/components/ui/AppCard';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorCard from '@/components/ui/ErrorCard';
 import PageHeader from '@/components/ui/PageHeader';
-import { getFeed, type FeedPost } from '@/api/posts';
-import { formatPostedAt } from '@/lib/dates';
-
-function formatNumber(n: number): string {
-  return n.toLocaleString();
-}
-
-function MilestonePost({ post }: { post: FeedPost }) {
-  return (
-    <Card>
-      <div className="flex items-baseline gap-3">
-        <Link
-          to={`/u/${encodeURIComponent(post.username)}`}
-          className="font-medium hover:text-primary transition-colors"
-        >
-          @{post.username}
-        </Link>
-        <span className="text-muted-foreground">
-          {post.body ?? 'hit a milestone'}
-        </span>
-        <span className="label-mono text-muted-foreground ml-auto">
-          {formatPostedAt(post.timestamp)}
-        </span>
-      </div>
-    </Card>
-  );
-}
-
-function RecapPost({ post }: { post: FeedPost }) {
-  const top = post.details?.top ?? [];
-  return (
-    <Card className="bg-accent/10">
-      <div className="flex items-baseline justify-between gap-3 mb-3">
-        <h3 className="font-display text-xl tracking-tight">
-          Yesterday&rsquo;s top 3
-        </h3>
-        <span className="label-mono text-muted-foreground">
-          {formatPostedAt(post.timestamp)}
-        </span>
-      </div>
-      <ol className="space-y-2">
-        {top.map((entry, i) => (
-          <li
-            key={entry.username}
-            className="flex items-baseline gap-3"
-          >
-            <span className="label-mono w-6 shrink-0 text-muted-foreground">
-              #{i + 1}
-            </span>
-            <Link
-              to={`/u/${encodeURIComponent(entry.username)}`}
-              className="font-medium hover:text-primary transition-colors flex-1 min-w-0 truncate"
-            >
-              @{entry.username}
-            </Link>
-            <span className="font-mono tabular-nums">
-              {formatNumber(entry.total)}
-            </span>
-          </li>
-        ))}
-      </ol>
-    </Card>
-  );
-}
-
-function GenericPost({ post }: { post: FeedPost }) {
-  return (
-    <Card>
-      <div className="flex items-baseline gap-3">
-        <Link
-          to={`/u/${encodeURIComponent(post.username)}`}
-          className="font-medium hover:text-primary transition-colors"
-        >
-          @{post.username}
-        </Link>
-        <span className="text-muted-foreground">
-          {post.body ?? `posted (${post.type})`}
-        </span>
-        <span className="label-mono text-muted-foreground ml-auto">
-          {formatPostedAt(post.timestamp)}
-        </span>
-      </div>
-    </Card>
-  );
-}
-
-function FeedSkeleton() {
-  return (
-    <div className="space-y-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Card key={i}>
-          <div className="flex items-baseline gap-3">
-            <span className="h-3 w-20 bg-muted/60 rounded animate-pulse" />
-            <span className="h-3 flex-1 bg-muted/60 rounded animate-pulse" />
-            <span className="h-3 w-12 bg-muted/60 rounded animate-pulse" />
-          </div>
-        </Card>
-      ))}
-    </div>
-  );
-}
+import FeedSkeleton from '@/components/feed/FeedSkeleton';
+import GenericPost from '@/components/feed/GenericPost';
+import MilestonePost from '@/components/feed/MilestonePost';
+import RecapPost from '@/components/feed/RecapPost';
+import { getFeed } from '@/api/posts';
 
 export default function Feed() {
   const query = useQuery({

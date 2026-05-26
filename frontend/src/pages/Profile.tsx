@@ -1,16 +1,26 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import Button from '@/components/ui/AppButton';
 import Card from '@/components/ui/AppCard';
+import DailyBars from '@/components/ui/DailyBars';
+import EmptyState from '@/components/ui/EmptyState';
+import ErrorCard from '@/components/ui/ErrorCard';
+import TabStrip from '@/components/ui/TabStrip';
+import FeedSkeleton from '@/components/feed/FeedSkeleton';
+import GenericPost from '@/components/feed/GenericPost';
+import MilestonePost from '@/components/feed/MilestonePost';
+import RecapPost from '@/components/feed/RecapPost';
 import { ApiError } from '@/api/client';
+import { getUserFeed, type FeedPost } from '@/api/posts';
 import {
   getUserDaily,
+  getUserMonthly,
   getUserSummary,
   getUserWeekly,
-  type DailyTotal,
+  type UserDailyResponse,
+  type UserMonthlyResponse,
   type UserSummaryResponse,
   type UserWeeklyResponse,
-  type UserDailyResponse,
 } from '@/api/steps';
 import {
   currentDate,
@@ -54,35 +64,6 @@ function StatStripSkeleton() {
           <div className="h-8 w-24 bg-muted/60 rounded mt-2 animate-pulse" />
         </Card>
       ))}
-    </div>
-  );
-}
-
-function WeeklyBars({ days }: { days: DailyTotal[] }) {
-  const max = Math.max(...days.map((d) => d.total), 1);
-  return (
-    <div className="grid grid-cols-7 gap-2 h-28 items-end">
-      {days.map((d) => {
-        const heightPct = (d.total / max) * 100;
-        return (
-          <div
-            key={d.date}
-            className="flex flex-col items-center gap-1.5 h-full"
-            title={`${d.date}: ${formatNumber(d.total)}`}
-          >
-            <div className="flex-1 w-full flex items-end">
-              <div
-                className="w-full bg-primary/70 rounded-t"
-                style={{ height: `${Math.max(heightPct, 2)}%` }}
-                aria-label={`${d.date}: ${formatNumber(d.total)} steps`}
-              />
-            </div>
-            <span className="label-mono text-[10px] text-muted-foreground">
-              {d.date.slice(-2)}
-            </span>
-          </div>
-        );
-      })}
     </div>
   );
 }
@@ -184,7 +165,28 @@ function ThisWeekCard({ data }: { data: UserWeeklyResponse }) {
           {data.rank_this_week !== null ? `#${data.rank_this_week}` : '—'}
         </span>
       </div>
-      <WeeklyBars days={data.daily_breakdown} />
+      <DailyBars days={data.daily_breakdown} cols={7} />
+    </Card>
+  );
+}
+
+function ThisMonthCard({ data }: { data: UserMonthlyResponse }) {
+  return (
+    <Card>
+      <div className="flex items-baseline justify-between gap-3 mb-3">
+        <h2 className="font-display text-2xl tracking-tight">This month</h2>
+        <span className="label-mono text-muted-foreground">
+          {formatNumber(data.monthly_total)} steps ·{' '}
+          {data.rank_this_month !== null ? `#${data.rank_this_month}` : '—'}
+        </span>
+      </div>
+      {data.daily_breakdown.length === 0 ? (
+        <div className="label-mono text-muted-foreground italic">
+          No activity this month yet.
+        </div>
+      ) : (
+        <DailyBars days={data.daily_breakdown} />
+      )}
     </Card>
   );
 }
@@ -210,8 +212,21 @@ function TodayCard({ data }: { data: UserDailyResponse }) {
   );
 }
 
-export default function Profile() {
-  const { username = '' } = useParams<{ username: string }>();
+const TABS = [
+  { key: 'summary', label: 'Summary' },
+  { key: 'feed', label: 'Feed' },
+] as const;
+
+function currentMonthYYYYMM(): string {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  return `${yyyy}-${mm}`;
+}
+
+function SummaryPanel({ username }: { username: string }) {
+  const today = currentDate();
+  const month = currentMonthYYYYMM();
 
   const summary = useQuery({
     queryKey: ['steps', 'users', username, 'summary'],
@@ -220,16 +235,6 @@ export default function Profile() {
     staleTime: 30_000,
     retry: false,
   });
-
-  const weekly = useQuery({
-    queryKey: ['steps', 'users', username, 'weekly'],
-    queryFn: () => getUserWeekly(username),
-    enabled: !!username,
-    staleTime: 30_000,
-    retry: false,
-  });
-
-  const today = currentDate();
   const daily = useQuery({
     queryKey: ['steps', 'users', username, 'daily', today],
     queryFn: () => getUserDaily(username, today),
@@ -237,41 +242,39 @@ export default function Profile() {
     staleTime: 30_000,
     retry: false,
   });
-
-  // 404 detection lives on the summary query — the per-endpoint code
-  // is identical across all three, but summary is the canonical
-  // "this user exists" check.
-  if (
-    summary.error instanceof ApiError &&
-    summary.error.code === 'user_not_found'
-  ) {
-    return <NotFoundView username={username} />;
-  }
-
-  if (summary.isPending) {
-    return (
-      <div className="space-y-6">
-        <Header username={username} />
-        <StatStripSkeleton />
-        <CardSkeleton heightClass="h-32" />
-        <CardSkeleton heightClass="h-20" />
-      </div>
-    );
-  }
-
-  if (summary.isError) {
-    return (
-      <div className="space-y-6">
-        <Header username={username} />
-        <ErrorView error={summary.error} onRetry={() => summary.refetch()} />
-      </div>
-    );
-  }
+  const weekly = useQuery({
+    queryKey: ['steps', 'users', username, 'weekly'],
+    queryFn: () => getUserWeekly(username),
+    enabled: !!username,
+    staleTime: 30_000,
+    retry: false,
+  });
+  const monthly = useQuery({
+    queryKey: ['steps', 'users', username, 'monthly', month],
+    queryFn: () => getUserMonthly(username, month),
+    enabled: !!username,
+    staleTime: 30_000,
+    retry: false,
+  });
 
   return (
     <div className="space-y-6">
-      <Header username={summary.data.username} joinDate={summary.data.join_date} />
-      <StatStrip data={summary.data} />
+      {summary.isPending ? (
+        <StatStripSkeleton />
+      ) : summary.isError ? (
+        <ErrorView error={summary.error} onRetry={() => summary.refetch()} />
+      ) : (
+        <StatStrip data={summary.data} />
+      )}
+
+      {daily.isPending ? (
+        <CardSkeleton heightClass="h-20" />
+      ) : daily.isError ? (
+        <ErrorView error={daily.error} onRetry={() => daily.refetch()} />
+      ) : (
+        <TodayCard data={daily.data} />
+      )}
+
       {weekly.isPending ? (
         <CardSkeleton heightClass="h-32" />
       ) : weekly.isError ? (
@@ -279,12 +282,97 @@ export default function Profile() {
       ) : (
         <ThisWeekCard data={weekly.data} />
       )}
-      {daily.isPending ? (
-        <CardSkeleton heightClass="h-20" />
-      ) : daily.isError ? (
-        <ErrorView error={daily.error} onRetry={() => daily.refetch()} />
+
+      {monthly.isPending ? (
+        <CardSkeleton heightClass="h-32" />
+      ) : monthly.isError ? (
+        <ErrorView error={monthly.error} onRetry={() => monthly.refetch()} />
       ) : (
-        <TodayCard data={daily.data} />
+        <ThisMonthCard data={monthly.data} />
+      )}
+    </div>
+  );
+}
+
+function FeedPanel({ username }: { username: string }) {
+  const query = useQuery({
+    queryKey: ['posts', 'users', username, 'feed', 50],
+    queryFn: () => getUserFeed(username, 50),
+    enabled: !!username,
+    staleTime: 30_000,
+  });
+
+  if (query.isPending) return <FeedSkeleton />;
+  if (query.isError) {
+    return (
+      <ErrorCard
+        error={query.error}
+        onRetry={() => query.refetch()}
+        fallbackMessage="Could not load this user's feed."
+      />
+    );
+  }
+  if (query.data.posts.length === 0) {
+    return (
+      <Card>
+        <EmptyState message="No posts mention this user yet." />
+      </Card>
+    );
+  }
+  return (
+    <div className="space-y-4">
+      {query.data.posts.map((post: FeedPost) => {
+        if (post.type === 'leaderboard_recap') return <RecapPost key={post.id} post={post} />;
+        if (post.type === 'steps_milestone') return <MilestonePost key={post.id} post={post} />;
+        return <GenericPost key={post.id} post={post} />;
+      })}
+    </div>
+  );
+}
+
+export default function Profile() {
+  const { username = '' } = useParams<{ username: string }>();
+  const [params] = useSearchParams();
+  const active = params.get('tab') ?? 'summary';
+
+  // 404 detection hangs on the summary query because every Profile
+  // visit hits it regardless of which tab is active. React Query
+  // dedupes by queryKey, so the inner SummaryPanel's summary query
+  // shares this network request.
+  const summary = useQuery({
+    queryKey: ['steps', 'users', username, 'summary'],
+    queryFn: () => getUserSummary(username),
+    enabled: !!username,
+    staleTime: 30_000,
+    retry: false,
+  });
+
+  // Defensive guard for the unlikely case where useParams returns
+  // empty — Profile is only routed under /u/:username, so this is
+  // belt-and-suspenders against a route misconfig. Placed AFTER all
+  // hooks to respect the Rules of Hooks.
+  if (!username) {
+    return <NotFoundView username="" />;
+  }
+
+  if (
+    summary.error instanceof ApiError &&
+    summary.error.code === 'user_not_found'
+  ) {
+    return <NotFoundView username={username} />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <Header
+        username={summary.data?.username ?? username}
+        joinDate={summary.data?.join_date}
+      />
+      <TabStrip tabs={[...TABS]} defaultKey="summary" />
+      {active === 'feed' ? (
+        <FeedPanel username={username} />
+      ) : (
+        <SummaryPanel username={username} />
       )}
       <div className="pt-2">
         <Link
