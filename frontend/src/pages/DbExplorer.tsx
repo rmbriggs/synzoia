@@ -3,10 +3,8 @@ import { getDbDump, type Row } from '@/api/db';
 
 const TABLE_ORDER = [
   'profiles',
-  'groups',
-  'memberships',
-  'sleep_posts',
-  'streaks',
+  'steps',
+  'posts',
 ] as const;
 
 function formatCell(value: unknown): string {
