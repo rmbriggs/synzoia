@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import Button from '@/components/ui/AppButton';
 import Card from '@/components/ui/AppCard';
 import EmptyState from '@/components/ui/EmptyState';
+import ErrorCard from '@/components/ui/ErrorCard';
 import PageHeader from '@/components/ui/PageHeader';
-import { ApiError } from '@/api/client';
 import { getFeed, type FeedPost } from '@/api/posts';
 import { formatPostedAt } from '@/lib/dates';
 
@@ -107,29 +106,6 @@ function FeedSkeleton() {
   );
 }
 
-function ErrorCard({
-  error,
-  onRetry,
-}: {
-  error: unknown;
-  onRetry: () => void;
-}) {
-  const message =
-    error instanceof ApiError
-      ? error.message
-      : error instanceof Error
-        ? error.message
-        : 'Could not load the feed.';
-  return (
-    <Card className="border-destructive/40 bg-destructive/5">
-      <p className="text-destructive text-sm">{message}</p>
-      <Button variant="secondary" className="mt-3" onClick={onRetry}>
-        Try again
-      </Button>
-    </Card>
-  );
-}
-
 export default function Feed() {
   const query = useQuery({
     queryKey: ['posts', 'feed', 50],
@@ -147,7 +123,11 @@ export default function Feed() {
       {query.isPending ? (
         <FeedSkeleton />
       ) : query.isError ? (
-        <ErrorCard error={query.error} onRetry={() => query.refetch()} />
+        <ErrorCard
+          error={query.error}
+          onRetry={() => query.refetch()}
+          fallbackMessage="Could not load the feed."
+        />
       ) : query.data.posts.length === 0 ? (
         <Card>
           <EmptyState message="No posts yet. Start walking." />

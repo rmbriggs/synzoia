@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
-import Button from '@/components/ui/AppButton';
 import Card from '@/components/ui/AppCard';
 import EmptyState from '@/components/ui/EmptyState';
+import ErrorCard from '@/components/ui/ErrorCard';
 import PageHeader from '@/components/ui/PageHeader';
+import RowListSkeleton from '@/components/ui/RowListSkeleton';
 import TabStrip from '@/components/ui/TabStrip';
-import { ApiError } from '@/api/client';
 import {
   getGlobalDaily,
   getGlobalWeekly,
@@ -56,48 +56,6 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
   );
 }
 
-function LeaderboardSkeleton() {
-  return (
-    <Card>
-      <ul>
-        {Array.from({ length: 6 }).map((_, i) => (
-          <li
-            key={i}
-            className="flex items-center gap-4 py-3 border-b border-border/60 last:border-b-0"
-          >
-            <span className="h-3 w-8 bg-muted/60 rounded animate-pulse" />
-            <span className="h-3 flex-1 bg-muted/60 rounded animate-pulse" />
-            <span className="h-3 w-16 bg-muted/60 rounded animate-pulse" />
-          </li>
-        ))}
-      </ul>
-    </Card>
-  );
-}
-
-function ErrorCard({
-  error,
-  onRetry,
-}: {
-  error: unknown;
-  onRetry: () => void;
-}) {
-  const message =
-    error instanceof ApiError
-      ? error.message
-      : error instanceof Error
-        ? error.message
-        : 'Could not load the leaderboard.';
-  return (
-    <Card className="border-destructive/40 bg-destructive/5">
-      <p className="text-destructive text-sm">{message}</p>
-      <Button variant="secondary" className="mt-3" onClick={onRetry}>
-        Try again
-      </Button>
-    </Card>
-  );
-}
-
 function LeaderboardList({
   leaderboard,
   emptyMessage,
@@ -125,9 +83,15 @@ function TodayPanel() {
     staleTime: 30_000,
   });
 
-  if (query.isPending) return <LeaderboardSkeleton />;
+  if (query.isPending) return <RowListSkeleton />;
   if (query.isError) {
-    return <ErrorCard error={query.error} onRetry={() => query.refetch()} />;
+    return (
+      <ErrorCard
+        error={query.error}
+        onRetry={() => query.refetch()}
+        fallbackMessage="Could not load the leaderboard."
+      />
+    );
   }
 
   return (
@@ -184,9 +148,15 @@ function WeeklyPanel() {
     staleTime: 30_000,
   });
 
-  if (query.isPending) return <LeaderboardSkeleton />;
+  if (query.isPending) return <RowListSkeleton />;
   if (query.isError) {
-    return <ErrorCard error={query.error} onRetry={() => query.refetch()} />;
+    return (
+      <ErrorCard
+        error={query.error}
+        onRetry={() => query.refetch()}
+        fallbackMessage="Could not load the leaderboard."
+      />
+    );
   }
 
   return (

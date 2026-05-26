@@ -1,5 +1,19 @@
 import { apiFetch } from './client';
 
+export interface ProfileListEntry {
+  username: string;
+  join_date: string;
+  total_steps_all_time: number;
+}
+
+export interface ProfileListResponse {
+  profiles: ProfileListEntry[];
+}
+
+export function getProfiles(): Promise<ProfileListResponse> {
+  return apiFetch<ProfileListResponse>('/profiles');
+}
+
 export interface Profile {
   username: string;
   token: string;
