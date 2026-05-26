@@ -23,6 +23,7 @@ from backend.app.schemas.steps import (
     GlobalSummaryResponse,
     GlobalWeeklyResponse,
     UserDailyResponse,
+    UserMonthlyResponse,
     UserSummaryResponse,
     UserWeeklyResponse,
 )
@@ -120,6 +121,29 @@ def user_weekly(
     try:
         with db.get_engine().connect() as conn:
             return svc.get_user_weekly(conn, username, start)
+    except svc.UserNotFound as e:
+        raise _user_not_found(e.username) from e
+
+
+@router.get(
+    "/users/{username}/monthly",
+    response_model=UserMonthlyResponse,
+)
+def user_monthly(
+    username: str,
+    month: Optional[str] = Query(default=None, regex=r"^\d{4}-\d{2}$"),
+) -> UserMonthlyResponse:
+    """One user's stats for a CT calendar month. `month` is YYYY-MM
+    in CT; defaults to the current CT month."""
+    if month:
+        year, mo = month.split("-")
+        target = date(int(year), int(mo), 1)
+    else:
+        today = _today()
+        target = today.replace(day=1)
+    try:
+        with db.get_engine().connect() as conn:
+            return svc.get_user_monthly(conn, username, target)
     except svc.UserNotFound as e:
         raise _user_not_found(e.username) from e
 

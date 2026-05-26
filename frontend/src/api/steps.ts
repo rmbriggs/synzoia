@@ -67,6 +67,15 @@ export interface UserWeeklyResponse {
   daily_breakdown: DailyTotal[];
 }
 
+export interface UserMonthlyResponse {
+  username: string;
+  month_start: string;
+  month_end: string;
+  monthly_total: number;
+  rank_this_month: number | null;
+  daily_breakdown: DailyTotal[];
+}
+
 export interface UserBestDay {
   date: string;
   total: number;
@@ -114,6 +123,16 @@ export function getUserWeekly(
   const qs = weekStart ? `?week_start=${encodeURIComponent(weekStart)}` : '';
   return apiFetch<UserWeeklyResponse>(
     `/steps/users/${encodeURIComponent(username)}/weekly${qs}`,
+  );
+}
+
+export function getUserMonthly(
+  username: string,
+  month?: string,
+): Promise<UserMonthlyResponse> {
+  const qs = month ? `?month=${encodeURIComponent(month)}` : '';
+  return apiFetch<UserMonthlyResponse>(
+    `/steps/users/${encodeURIComponent(username)}/monthly${qs}`,
   );
 }
 

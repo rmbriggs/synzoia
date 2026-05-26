@@ -100,6 +100,19 @@ class UserNotFound(Exception):
 # ---------------------------------------------------------------------------
 
 
+def _month_bounds(month_start: date) -> tuple[date, date]:
+    """Return (first_of_month, last_of_month_inclusive). Caller passes
+    a date that is the 1st of the desired CT month; we re-anchor
+    defensively so callers can pass any in-month date if they want."""
+    first = month_start.replace(day=1)
+    if first.month == 12:
+        next_first = first.replace(year=first.year + 1, month=1)
+    else:
+        next_first = first.replace(month=first.month + 1)
+    last = next_first - timedelta(days=1)
+    return first, last
+
+
 def _iso_week_bounds(week_start: date) -> tuple[date, date]:
     """Return (week_start, week_end_inclusive). Caller picks Monday."""
     return week_start, week_start + timedelta(days=6)
@@ -164,6 +177,36 @@ def _daily_totals_in_range(
         if total > by_bucket.get(key, -1):
             by_bucket[key] = total
     return [(uid, day, total) for (uid, day), total in by_bucket.items()]
+
+
+def _all_time_daily_max(
+    conn: Connection,
+) -> dict[tuple[int, date], int]:
+    """Per (user_id, CT-day) MAX(total) across the entire steps table.
+
+    Single source of truth for the all-time aggregation — every callsite
+    that wants 'a user's all-time total' or 'every user's all-time total'
+    builds on this. Outlier rows (total > OUTLIER_CAP) are filtered
+    before bucketing, matching the per-CT-day aggregator used elsewhere."""
+    rows = (
+        conn.execute(
+            text(
+                "SELECT user_id, timestamp, total FROM steps "
+                "WHERE total <= :cap"
+            ),
+            {"cap": OUTLIER_CAP},
+        )
+        .mappings()
+        .all()
+    )
+    daily_max: dict[tuple[int, date], int] = {}
+    for r in rows:
+        d = _ct_date(r["timestamp"])
+        key = (int(r["user_id"]), d)
+        t = int(r["total"])
+        if t > daily_max.get(key, -1):
+            daily_max[key] = t
+    return daily_max
 
 
 def _build_leaderboard(
@@ -261,24 +304,7 @@ def get_global_summary(
     )
 
     # All-time aggregates: walk every row, bucket by (user, CT day).
-    all_rows = (
-        conn.execute(
-            text(
-                "SELECT user_id, timestamp, total FROM steps "
-                "WHERE total <= :cap"
-            ),
-            {"cap": OUTLIER_CAP},
-        )
-        .mappings()
-        .all()
-    )
-    daily_max: dict[tuple[int, date], int] = {}
-    for r in all_rows:
-        d = _ct_date(r["timestamp"])
-        key = (int(r["user_id"]), d)
-        total = int(r["total"])
-        if total > daily_max.get(key, -1):
-            daily_max[key] = total
+    daily_max = _all_time_daily_max(conn)
     total_steps_all_time = sum(daily_max.values())
 
     # Best day ever: highest (user, CT-day) across the table.
@@ -413,30 +439,52 @@ def get_user_weekly(
     )
 
 
+def get_user_monthly(
+    conn: Connection, username: str, month_start: date
+) -> "UserMonthlyResponse":
+    """One user's stats for a single CT calendar month.
+
+    Mirrors get_user_weekly: walk all per-CT-day MAX totals in the
+    month for ranking, plus per-day breakdown of just this user's
+    days that actually had data (no zero-filled gaps, matching the
+    weekly endpoint's behavior on missing days)."""
+    from backend.app.schemas.steps import UserMonthlyResponse
+
+    user_id, _join_date = _lookup_user(conn, username)
+    start, end = _month_bounds(month_start)
+    rows = _daily_totals_in_range(conn, start, end)
+
+    monthly_totals: dict[int, int] = defaultdict(int)
+    user_daily: list[tuple[date, int]] = []
+    for uid, d, total in rows:
+        monthly_totals[uid] += total
+        if uid == user_id:
+            user_daily.append((d, total))
+
+    rank = _rank_of_user(monthly_totals, user_id)
+    user_daily.sort(key=lambda x: x[0])
+
+    daily_breakdown = [
+        DailyTotal(date=d, total=t) for d, t in user_daily
+    ]
+
+    return UserMonthlyResponse(
+        username=username,
+        month_start=start,
+        month_end=end,
+        monthly_total=monthly_totals.get(user_id, 0),
+        rank_this_month=rank,
+        daily_breakdown=daily_breakdown,
+    )
+
+
 def get_user_summary(
     conn: Connection, username: str
 ) -> UserSummaryResponse:
     user_id, join_date = _lookup_user(conn, username)
 
     # All-time aggregate: walk every row, bucket by (user, CT day).
-    all_rows = (
-        conn.execute(
-            text(
-                "SELECT user_id, timestamp, total FROM steps "
-                "WHERE total <= :cap"
-            ),
-            {"cap": OUTLIER_CAP},
-        )
-        .mappings()
-        .all()
-    )
-    daily_max: dict[tuple[int, date], int] = {}
-    for r in all_rows:
-        d = _ct_date(r["timestamp"])
-        key = (int(r["user_id"]), d)
-        total = int(r["total"])
-        if total > daily_max.get(key, -1):
-            daily_max[key] = total
+    daily_max = _all_time_daily_max(conn)
 
     totals_by_user: dict[int, int] = defaultdict(int)
     user_days: list[tuple[date, int]] = []

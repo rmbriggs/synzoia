@@ -275,3 +275,89 @@ def test_post_rejects_system_only_types(monkeypatch):
         headers=headers,
     )
     assert ok.status_code == 201
+
+
+# ---------------------------------------------------------------------------
+# Per-user feed: recap mention inclusion
+# ---------------------------------------------------------------------------
+
+
+def test_user_feed_includes_recap_where_user_appears_in_top(monkeypatch):
+    """A leaderboard_recap that mentions a user in details.top must
+    appear in that user's feed, even if it was authored by someone else."""
+    engine = _engine_with_users()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+    with engine.begin() as conn:
+        # Cron attributes the recap to user_id=1 (alice). The recap
+        # mentions alice AND bob (user_id=2) in details.top.
+        conn.execute(
+            text(
+                "INSERT INTO posts "
+                "(user_id, username, type, timestamp, details, body) "
+                "VALUES (1, 'alice', 'leaderboard_recap', "
+                "'2026-05-24T11:00:00', :details, 'Yesterday''s top 3')"
+            ),
+            {
+                "details": '{"top":[{"username":"alice","total":9000},'
+                           '{"username":"bob","total":7000}],"date":"2026-05-23"}'
+            },
+        )
+
+    response = TestClient(main.app).get("/api/posts/users/bob")
+
+    assert response.status_code == 200
+    posts = response.json()["posts"]
+    assert len(posts) == 1
+    assert posts[0]["type"] == "leaderboard_recap"
+
+
+def test_user_feed_excludes_recap_where_user_not_in_top(monkeypatch):
+    """A recap whose details.top does NOT include the target user
+    must NOT appear in their feed, even though it exists in the table."""
+    engine = _engine_with_users()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+    with engine.begin() as conn:
+        # Recap mentions only alice — bob is absent.
+        conn.execute(
+            text(
+                "INSERT INTO posts "
+                "(user_id, username, type, timestamp, details, body) "
+                "VALUES (1, 'alice', 'leaderboard_recap', "
+                "'2026-05-24T11:00:00', :details, 'Yesterday''s top 3')"
+            ),
+            {
+                "details": '{"top":[{"username":"alice","total":9000}],'
+                           '"date":"2026-05-23"}'
+            },
+        )
+
+    response = TestClient(main.app).get("/api/posts/users/bob")
+
+    assert response.status_code == 200
+    posts = response.json()["posts"]
+    assert posts == []
+
+
+def test_user_feed_dedupes_recap_authored_by_target(monkeypatch):
+    """If cron attributes the recap to user X AND X is in details.top,
+    the post should appear exactly once in X's feed — not twice."""
+    engine = _engine_with_users()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO posts "
+                "(user_id, username, type, timestamp, details, body) "
+                "VALUES (1, 'alice', 'leaderboard_recap', "
+                "'2026-05-24T11:00:00', :details, 'Yesterday''s top 3')"
+            ),
+            {
+                "details": '{"top":[{"username":"alice","total":9000}],'
+                           '"date":"2026-05-23"}'
+            },
+        )
+
+    response = TestClient(main.app).get("/api/posts/users/alice")
+
+    posts = response.json()["posts"]
+    assert len(posts) == 1

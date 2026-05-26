@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { Database, Rss, Trophy } from 'lucide-react';
+import { Database, Rss, Trophy, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 
@@ -56,6 +56,9 @@ export function AppLayout() {
               <NavLink to="/leaderboard" className={topNavClass}>
                 Leaderboard
               </NavLink>
+              <NavLink to="/users" className={topNavClass}>
+                Users
+              </NavLink>
               <NavLink to="/db" className={topNavClass}>
                 Database
               </NavLink>
@@ -84,6 +87,11 @@ export function AppLayout() {
             to="/leaderboard"
             icon={<Trophy size={18} strokeWidth={1.75} />}
             label="Leaderboard"
+          />
+          <BottomNavItem
+            to="/users"
+            icon={<Users size={18} strokeWidth={1.75} />}
+            label="Users"
           />
           <BottomNavItem
             to="/db"

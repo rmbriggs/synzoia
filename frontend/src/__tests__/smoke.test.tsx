@@ -22,6 +22,7 @@ describe('App smoke', () => {
     '/style-guide',
     '/db',
     '/feed',
+    '/users',
     '/leaderboard',
     '/u/someuser',
   ];

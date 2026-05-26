@@ -82,6 +82,16 @@ class UserWeeklyResponse(BaseModel):
     daily_breakdown: list[DailyTotal]
 
 
+class UserMonthlyResponse(BaseModel):
+    """One user's stats for a single CT calendar month."""
+    username: str
+    month_start: date
+    month_end: date
+    monthly_total: int
+    rank_this_month: Optional[int] = None
+    daily_breakdown: list[DailyTotal]
+
+
 class UserBestDay(BaseModel):
     date: date
     total: int
