@@ -512,10 +512,14 @@ def detect_and_insert_milestone(
     ct_date = _ct_date(timestamp)
     lower, upper = _utc_window(ct_date, ct_date)
 
-    max_today_row = (
+    # _utc_window spans multiple CT days, so take the max in Python
+    # after filtering each row to the actual CT date. A SQL-level MAX
+    # would otherwise pick up totals from a neighboring CT day and
+    # falsely fire a milestone here.
+    max_today_rows = (
         conn.execute(
             text(
-                "SELECT MAX(total) AS m FROM steps "
+                "SELECT total, timestamp FROM steps "
                 "WHERE user_id = :uid "
                 "AND timestamp >= :lower AND timestamp < :upper "
                 "AND total <= :cap"
@@ -523,9 +527,12 @@ def detect_and_insert_milestone(
             {"uid": user_id, "lower": lower, "upper": upper, "cap": OUTLIER_CAP},
         )
         .mappings()
-        .first()
+        .all()
     )
-    max_today = int(max_today_row["m"] or 0)
+    max_today = max(
+        (int(r["total"]) for r in max_today_rows if _ct_date(r["timestamp"]) == ct_date),
+        default=0,
+    )
 
     # Already-crossed thresholds for this user on this CT date.
     # Scope the scan to today's UTC window — without that bound we'd
