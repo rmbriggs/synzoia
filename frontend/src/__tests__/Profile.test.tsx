@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Profile from '@/pages/Profile';
@@ -22,6 +22,7 @@ function renderAt(url: string) {
 const originalFetch = globalThis.fetch;
 
 afterEach(() => {
+  window.localStorage.clear();
   globalThis.fetch = originalFetch;
   vi.clearAllMocks();
 });
@@ -293,6 +294,42 @@ describe('Profile page', () => {
       // Week and month each render "0 steps · —" — the dashes are
       // interleaved in those spans.
       expect(screen.getAllByText('0 steps · —')).toHaveLength(2);
+    });
+  });
+
+  describe('"Make this me" button', () => {
+    it('shows "Make this me" when no current user is set', async () => {
+      globalThis.fetch = routedMock(summaryMocks());
+
+      renderAt('/u/alice');
+
+      expect(
+        await screen.findByRole('button', { name: /make this me/i }),
+      ).toBeInTheDocument();
+    });
+
+    it('clicking it persists the username and flips to "This is you"', async () => {
+      globalThis.fetch = routedMock(summaryMocks());
+
+      renderAt('/u/alice');
+
+      const btn = await screen.findByRole('button', { name: /make this me/i });
+      fireEvent.click(btn);
+
+      expect(window.localStorage.getItem('synzoia.currentUser')).toBe('alice');
+      expect(
+        await screen.findByRole('button', { name: /this is you/i }),
+      ).toBeDisabled();
+    });
+
+    it('shows a disabled "This is you" when viewing your saved profile', async () => {
+      window.localStorage.setItem('synzoia.currentUser', 'alice');
+      globalThis.fetch = routedMock(summaryMocks());
+
+      renderAt('/u/alice');
+
+      const btn = await screen.findByRole('button', { name: /this is you/i });
+      expect(btn).toBeDisabled();
     });
   });
 });
