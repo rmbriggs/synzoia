@@ -311,6 +311,41 @@ def test_step_write_5k_then_12k_fires_10k_but_does_not_refire_5k(monkeypatch):
     ]
 
 
+def test_step_write_does_not_fire_milestone_from_other_ct_day(monkeypatch):
+    """Regression: a high step total on one CT day must not trigger a
+    milestone on a different CT day. _utc_window deliberately spans
+    multiple UTC days to cover CT/UTC boundary, so the detector must
+    re-filter rows by actual CT date in Python before taking the max."""
+    engine = _engine_with_users_and_posts()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+    client = TestClient(main.app)
+
+    # UTC 02:30 on 5/24 → CT 21:30 on 5/23. Alice crosses 5k on CT 5/23.
+    first = client.post(
+        "/api/steps",
+        json={"timestamp": "2026-05-24T02:30:00", "total": 9567},
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+    # UTC 00:02 on 5/26 → CT 19:02 on 5/25. Only 955 steps on CT 5/25 —
+    # nowhere near a milestone. But the wide UTC window pulls in the
+    # 9567 row from CT 5/23 if the detector doesn't re-filter.
+    second = client.post(
+        "/api/steps",
+        json={"timestamp": "2026-05-26T00:02:00", "total": 955},
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+
+    import json as _json
+    rows = _milestone_rows(engine, user_id=1)
+    details = [_json.loads(r["details"]) for r in rows]
+    # Exactly one milestone, for the one CT day she actually crossed 5k.
+    assert len(rows) == 1, f"unexpected milestone rows: {details}"
+    assert details[0] == {"threshold": 5000, "date": "2026-05-23"}
+
+
 def test_step_write_milestones_isolated_per_user(monkeypatch):
     """Alice and Bob both posting must produce milestones attributed
     to their own user_id, never each other's."""
