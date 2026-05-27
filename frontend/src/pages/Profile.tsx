@@ -12,6 +12,7 @@ import MilestonePost from '@/components/feed/MilestonePost';
 import RecapPost from '@/components/feed/RecapPost';
 import { ApiError } from '@/api/client';
 import { getUserFeed, type FeedPost } from '@/api/posts';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import {
   getUserDaily,
   getUserMonthly,
@@ -347,6 +348,8 @@ export default function Profile() {
     retry: false,
   });
 
+  const { currentUser, setCurrentUser } = useCurrentUser();
+
   // Defensive guard for the unlikely case where useParams returns
   // empty — Profile is only routed under /u/:username, so this is
   // belt-and-suspenders against a route misconfig. Placed AFTER all
@@ -368,6 +371,15 @@ export default function Profile() {
         username={summary.data?.username ?? username}
         joinDate={summary.data?.join_date}
       />
+      {currentUser === username ? (
+        <Button variant="secondary" disabled>
+          ✓ This is you
+        </Button>
+      ) : (
+        <Button variant="primary" onClick={() => setCurrentUser(username)}>
+          Make this me
+        </Button>
+      )}
       <TabStrip tabs={[...TABS]} defaultKey="summary" />
       {active === 'feed' ? (
         <FeedPanel username={username} />
