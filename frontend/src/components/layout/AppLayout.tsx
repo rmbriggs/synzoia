@@ -1,7 +1,8 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { Database, Rss, Trophy, Users } from 'lucide-react';
+import { CircleUser, Database, Rss, Trophy, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import ThemeToggle from '@/components/layout/ThemeToggle';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 const topNavClass = ({ isActive }: { isActive: boolean }) =>
   `label-mono transition-colors ${
@@ -12,17 +13,20 @@ function BottomNavItem({
   to,
   icon,
   label,
+  ariaLabel,
 }: {
   to: string;
   icon: ReactNode;
   label: string;
+  ariaLabel?: string;
 }) {
   return (
     <NavLink
       to={to}
       end
+      aria-label={ariaLabel}
       className={({ isActive }) =>
-        `flex flex-col items-center justify-center gap-1 px-5 py-2 rounded-full transition-all ${
+        `flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-full transition-all ${
           isActive
             ? 'text-primary bg-[color-mix(in_oklch,var(--primary)_14%,transparent)]'
             : 'text-muted-foreground hover:text-foreground'
@@ -36,6 +40,11 @@ function BottomNavItem({
 }
 
 export function AppLayout() {
+  const { currentUser } = useCurrentUser();
+  const profileTarget = currentUser
+    ? `/u/${encodeURIComponent(currentUser)}`
+    : '/users';
+
   return (
     <div className="min-h-screen text-foreground">
       <header className="border-b border-border/60 sticky top-0 z-10 backdrop-blur-md bg-background/70">
@@ -63,6 +72,14 @@ export function AppLayout() {
                 Database
               </NavLink>
             </nav>
+            <Link
+              to={profileTarget}
+              aria-label="Your profile"
+              title="Your profile"
+              className="text-muted-foreground hover:text-foreground transition-colors p-2 -m-2"
+            >
+              <CircleUser size={20} strokeWidth={1.75} />
+            </Link>
             <ThemeToggle />
           </div>
         </div>
@@ -97,6 +114,12 @@ export function AppLayout() {
             to="/db"
             icon={<Database size={18} strokeWidth={1.75} />}
             label="Database"
+          />
+          <BottomNavItem
+            to={profileTarget}
+            icon={<CircleUser size={18} strokeWidth={1.75} />}
+            label="Me"
+            ariaLabel="Your profile"
           />
         </div>
       </nav>
