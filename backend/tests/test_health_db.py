@@ -22,11 +22,12 @@ def _make_sqlite_engine(*table_names: str):
 
 
 def test_db_check_reports_table_counts_when_all_present(monkeypatch):
-    engine = _make_sqlite_engine("profiles", "steps", "posts")
+    engine = _make_sqlite_engine("profiles", "steps", "posts", "sleep")
     with engine.begin() as conn:
         conn.execute(text("INSERT INTO profiles (id) VALUES (1), (2)"))
         conn.execute(text("INSERT INTO steps (id) VALUES (1)"))
         conn.execute(text("INSERT INTO posts (id) VALUES (1), (2), (3)"))
+        conn.execute(text("INSERT INTO sleep (id) VALUES (1), (2)"))
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     response = TestClient(main.app).get("/api/health/db")
@@ -35,7 +36,7 @@ def test_db_check_reports_table_counts_when_all_present(monkeypatch):
     assert response.json() == {
         "ok": True,
         "stage": "query",
-        "tables": {"profiles": 2, "steps": 1, "posts": 3},
+        "tables": {"profiles": 2, "steps": 1, "posts": 3, "sleep": 2},
     }
 
 
