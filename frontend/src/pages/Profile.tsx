@@ -226,7 +226,10 @@ function TodayCard({ data }: { data: UserDailyResponse }) {
 }
 
 function formatSleepHours(minutes: number): string {
-  return `${Math.round(minutes / 60)}h`;
+  // Floor (not round) so an all-time total reads as whole hours actually
+  // accumulated — matches formatDuration's hours component, and a single
+  // 58-minute night shows "0h", not a misleading "1h".
+  return `${Math.floor(minutes / 60)}h`;
 }
 
 function SleepStatStrip({ data }: { data: SleepSummaryResponse }) {
