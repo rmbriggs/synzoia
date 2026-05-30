@@ -134,3 +134,10 @@ export function formatPostedAt(iso: string, now: Date = new Date()): string {
   });
   return `${date}, ${time}`;
 }
+
+/** Render a minute count as "7h 32m". Used for sleep durations. */
+export function formatDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours}h ${mins}m`;
+}

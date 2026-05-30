@@ -11,6 +11,8 @@ export interface PostDetails {
   threshold?: number;
   date?: string;
   top?: { username: string; total: number }[];
+  duration_min?: number;
+  night_of?: string;
 }
 
 export interface FeedPost {

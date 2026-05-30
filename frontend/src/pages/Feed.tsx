@@ -7,6 +7,7 @@ import FeedSkeleton from '@/components/feed/FeedSkeleton';
 import GenericPost from '@/components/feed/GenericPost';
 import MilestonePost from '@/components/feed/MilestonePost';
 import RecapPost from '@/components/feed/RecapPost';
+import SleepPost from '@/components/feed/SleepPost';
 import { getFeed } from '@/api/posts';
 
 export default function Feed() {
@@ -43,6 +44,9 @@ export default function Feed() {
             }
             if (post.type === 'steps_milestone') {
               return <MilestonePost key={post.id} post={post} />;
+            }
+            if (post.type === 'sleep') {
+              return <SleepPost key={post.id} post={post} />;
             }
             return <GenericPost key={post.id} post={post} />;
           })}

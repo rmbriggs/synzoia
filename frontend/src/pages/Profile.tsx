@@ -10,6 +10,7 @@ import FeedSkeleton from '@/components/feed/FeedSkeleton';
 import GenericPost from '@/components/feed/GenericPost';
 import MilestonePost from '@/components/feed/MilestonePost';
 import RecapPost from '@/components/feed/RecapPost';
+import SleepPost from '@/components/feed/SleepPost';
 import { ApiError } from '@/api/client';
 import { getUserFeed, type FeedPost } from '@/api/posts';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -24,8 +25,19 @@ import {
   type UserWeeklyResponse,
 } from '@/api/steps';
 import {
+  getUserDaily as getSleepDaily,
+  getUserWeekly as getSleepWeekly,
+  getUserMonthly as getSleepMonthly,
+  getUserSummary as getSleepSummary,
+  type UserDailyResponse as SleepDailyResponse,
+  type UserWeeklyResponse as SleepWeeklyResponse,
+  type UserMonthlyResponse as SleepMonthlyResponse,
+  type UserSummaryResponse as SleepSummaryResponse,
+} from '@/api/sleep';
+import {
   currentDate,
   formatDateMedium,
+  formatDuration,
   formatTimestampDate,
 } from '@/lib/dates';
 
@@ -213,6 +225,100 @@ function TodayCard({ data }: { data: UserDailyResponse }) {
   );
 }
 
+function formatSleepHours(minutes: number): string {
+  // Floor (not round) so an all-time total reads as whole hours actually
+  // accumulated — matches formatDuration's hours component, and a single
+  // 58-minute night shows "0h", not a misleading "1h".
+  return `${Math.floor(minutes / 60)}h`;
+}
+
+function SleepStatStrip({ data }: { data: SleepSummaryResponse }) {
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <StatCard
+        label="All-time sleep"
+        value={formatSleepHours(data.total_minutes_all_time)}
+      />
+      <StatCard label="Nights logged" value={formatNumber(data.nights_logged)} />
+      <StatCard
+        label="All-time rank"
+        value={data.rank_all_time !== null ? `#${data.rank_all_time}` : '—'}
+      />
+      <StatCard
+        label="Best night"
+        value={data.best_night ? formatDuration(data.best_night.total) : '—'}
+        sub={
+          data.best_night ? formatHeadingDate(data.best_night.date) : undefined
+        }
+      />
+    </div>
+  );
+}
+
+function SleepTodayCard({ data }: { data: SleepDailyResponse }) {
+  return (
+    <Card>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="font-display text-2xl tracking-tight">Last night</h2>
+        <span className="label-mono text-muted-foreground">
+          {data.rank_today !== null ? `#${data.rank_today}` : '—'}
+        </span>
+      </div>
+      <div className="font-display text-4xl mt-2 tabular-nums">
+        {data.total > 0 ? formatDuration(data.total) : '—'}
+      </div>
+      <div className="label-mono text-muted-foreground mt-1">
+        {data.post === null ? 'No sleep logged.' : 'Logged'}
+      </div>
+    </Card>
+  );
+}
+
+function SleepThisWeekCard({ data }: { data: SleepWeeklyResponse }) {
+  return (
+    <Card>
+      <div className="flex items-baseline justify-between gap-3 mb-3">
+        <h2 className="font-display text-2xl tracking-tight">This week</h2>
+        <span className="label-mono text-muted-foreground">
+          {formatDuration(data.weekly_total)} ·{' '}
+          {data.rank_this_week !== null ? `#${data.rank_this_week}` : '—'}
+        </span>
+      </div>
+      <DailyBars
+        days={data.daily_breakdown}
+        cols={7}
+        formatValue={formatDuration}
+        unit=""
+      />
+    </Card>
+  );
+}
+
+function SleepThisMonthCard({ data }: { data: SleepMonthlyResponse }) {
+  return (
+    <Card>
+      <div className="flex items-baseline justify-between gap-3 mb-3">
+        <h2 className="font-display text-2xl tracking-tight">This month</h2>
+        <span className="label-mono text-muted-foreground">
+          {formatDuration(data.monthly_total)} ·{' '}
+          {data.rank_this_month !== null ? `#${data.rank_this_month}` : '—'}
+        </span>
+      </div>
+      {data.daily_breakdown.length === 0 ? (
+        <div className="label-mono text-muted-foreground italic">
+          No sleep this month yet.
+        </div>
+      ) : (
+        <DailyBars
+          days={data.daily_breakdown}
+          formatValue={formatDuration}
+          unit=""
+        />
+      )}
+    </Card>
+  );
+}
+
 const TABS = [
   { key: 'summary', label: 'Summary' },
   { key: 'feed', label: 'Feed' },
@@ -258,39 +364,121 @@ function SummaryPanel({ username }: { username: string }) {
     retry: false,
   });
 
+  const sleepSummary = useQuery({
+    queryKey: ['sleep', 'users', username, 'summary'],
+    queryFn: () => getSleepSummary(username),
+    enabled: !!username,
+    staleTime: 30_000,
+    retry: false,
+  });
+
+  const sleepDaily = useQuery({
+    queryKey: ['sleep', 'users', username, 'daily', today],
+    queryFn: () => getSleepDaily(username, today),
+    enabled: !!username,
+    staleTime: 30_000,
+    retry: false,
+  });
+
+  const sleepWeekly = useQuery({
+    queryKey: ['sleep', 'users', username, 'weekly'],
+    queryFn: () => getSleepWeekly(username),
+    enabled: !!username,
+    staleTime: 30_000,
+    retry: false,
+  });
+
+  const sleepMonthly = useQuery({
+    queryKey: ['sleep', 'users', username, 'monthly', month],
+    queryFn: () => getSleepMonthly(username, month),
+    enabled: !!username,
+    staleTime: 30_000,
+    retry: false,
+  });
+
   return (
-    <div className="space-y-6">
-      {summary.isPending ? (
-        <StatStripSkeleton />
-      ) : summary.isError ? (
-        <ErrorView error={summary.error} onRetry={() => summary.refetch()} />
-      ) : (
-        <StatStrip data={summary.data} />
-      )}
+    <div className="space-y-8">
+      <section className="space-y-6">
+        <h2 className="label-mono text-muted-foreground">Steps</h2>
+        {summary.isPending ? (
+          <StatStripSkeleton />
+        ) : summary.isError ? (
+          <ErrorView error={summary.error} onRetry={() => summary.refetch()} />
+        ) : (
+          <StatStrip data={summary.data} />
+        )}
 
-      {daily.isPending ? (
-        <CardSkeleton heightClass="h-20" />
-      ) : daily.isError ? (
-        <ErrorView error={daily.error} onRetry={() => daily.refetch()} />
-      ) : (
-        <TodayCard data={daily.data} />
-      )}
+        {daily.isPending ? (
+          <CardSkeleton heightClass="h-20" />
+        ) : daily.isError ? (
+          <ErrorView error={daily.error} onRetry={() => daily.refetch()} />
+        ) : (
+          <TodayCard data={daily.data} />
+        )}
 
-      {weekly.isPending ? (
-        <CardSkeleton heightClass="h-32" />
-      ) : weekly.isError ? (
-        <ErrorView error={weekly.error} onRetry={() => weekly.refetch()} />
-      ) : (
-        <ThisWeekCard data={weekly.data} />
-      )}
+        {weekly.isPending ? (
+          <CardSkeleton heightClass="h-32" />
+        ) : weekly.isError ? (
+          <ErrorView error={weekly.error} onRetry={() => weekly.refetch()} />
+        ) : (
+          <ThisWeekCard data={weekly.data} />
+        )}
 
-      {monthly.isPending ? (
-        <CardSkeleton heightClass="h-32" />
-      ) : monthly.isError ? (
-        <ErrorView error={monthly.error} onRetry={() => monthly.refetch()} />
-      ) : (
-        <ThisMonthCard data={monthly.data} />
-      )}
+        {monthly.isPending ? (
+          <CardSkeleton heightClass="h-32" />
+        ) : monthly.isError ? (
+          <ErrorView error={monthly.error} onRetry={() => monthly.refetch()} />
+        ) : (
+          <ThisMonthCard data={monthly.data} />
+        )}
+      </section>
+
+      <section className="space-y-6">
+        <h2 className="label-mono text-muted-foreground">Sleep</h2>
+        {sleepSummary.isPending ? (
+          <StatStripSkeleton />
+        ) : sleepSummary.isError ? (
+          <ErrorView
+            error={sleepSummary.error}
+            onRetry={() => sleepSummary.refetch()}
+          />
+        ) : (
+          <SleepStatStrip data={sleepSummary.data} />
+        )}
+
+        {sleepDaily.isPending ? (
+          <CardSkeleton heightClass="h-20" />
+        ) : sleepDaily.isError ? (
+          <ErrorView
+            error={sleepDaily.error}
+            onRetry={() => sleepDaily.refetch()}
+          />
+        ) : (
+          <SleepTodayCard data={sleepDaily.data} />
+        )}
+
+        {sleepWeekly.isPending ? (
+          <CardSkeleton heightClass="h-32" />
+        ) : sleepWeekly.isError ? (
+          <ErrorView
+            error={sleepWeekly.error}
+            onRetry={() => sleepWeekly.refetch()}
+          />
+        ) : (
+          <SleepThisWeekCard data={sleepWeekly.data} />
+        )}
+
+        {sleepMonthly.isPending ? (
+          <CardSkeleton heightClass="h-32" />
+        ) : sleepMonthly.isError ? (
+          <ErrorView
+            error={sleepMonthly.error}
+            onRetry={() => sleepMonthly.refetch()}
+          />
+        ) : (
+          <SleepThisMonthCard data={sleepMonthly.data} />
+        )}
+      </section>
     </div>
   );
 }
@@ -325,6 +513,7 @@ function FeedPanel({ username }: { username: string }) {
       {query.data.posts.map((post: FeedPost) => {
         if (post.type === 'leaderboard_recap') return <RecapPost key={post.id} post={post} />;
         if (post.type === 'steps_milestone') return <MilestonePost key={post.id} post={post} />;
+        if (post.type === 'sleep') return <SleepPost key={post.id} post={post} />;
         return <GenericPost key={post.id} post={post} />;
       })}
     </div>
