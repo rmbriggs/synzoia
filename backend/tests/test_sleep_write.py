@@ -10,11 +10,13 @@ the right user (never spoofable via body), duplicate nights return
 
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import StaticPool
 
 from backend.app import db, main
+from backend.app.services.sleep import _format_sleep_body
 
 
 ALICE_TOKEN = "ALCE-AAAA-AAAA-AAAA"
@@ -365,3 +367,17 @@ def test_duplicate_night_creates_no_second_post(monkeypatch):
     # The duplicate night rolled back — exactly one post, one sleep row.
     assert _count_posts(engine) == 1
     assert _count_sleep(engine) == 1
+
+
+@pytest.mark.parametrize(
+    "minutes,expected",
+    [
+        (452, "slept 7h 32m"),
+        (480, "slept 8h 0m"),
+        (60, "slept 1h 0m"),
+        (45, "slept 0h 45m"),
+        (0, "slept 0h 0m"),
+    ],
+)
+def test_format_sleep_body(minutes, expected):
+    assert _format_sleep_body(minutes) == expected

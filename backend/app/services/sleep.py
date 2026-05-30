@@ -22,7 +22,7 @@ fragile date casts in SQL.
 
 from __future__ import annotations
 
-import json
+import json as _json
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from typing import Iterable, Optional
@@ -616,7 +616,7 @@ def create_sleep_post(
     )
     if username_row is None:
         return
-    details_str = json.dumps(
+    details_str = _json.dumps(
         {"duration_min": duration_min, "night_of": night_of.isoformat()}
     )
     # Store wake_time as an ISO-8601 string so SQLite keeps the 'T'
