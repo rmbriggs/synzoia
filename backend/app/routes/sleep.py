@@ -191,9 +191,9 @@ def create_sleep(
     the service from wake_time's CT date (NEVER trusted from the body,
     per CLAUDE.md)."""
     # hours (decimal) → minutes (int), rounded to nearest minute.
-    # Clamp to [0, 1440] to respect the DB CHECK constraint even if a
-    # client somehow sneaks past the schema-level cap.
-    duration_min = max(0, min(1440, round(req.total_sleep_hours * 60)))
+    # total_sleep_hours is schema-bounded to [0, 24], so this lands in
+    # [0, 1440] — within the DB CHECK on duration_min — without a clamp.
+    duration_min = round(req.total_sleep_hours * 60)
 
     try:
         with db.get_engine().begin() as conn:
