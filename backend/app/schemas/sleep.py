@@ -14,9 +14,9 @@ server-side (token + CT-date math) and NEVER from the body.
 """
 
 from datetime import date, datetime
-from typing import Optional
+from typing import Annotated, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ---------------------------------------------------------------------------
@@ -157,17 +157,34 @@ class UserSummaryResponse(BaseModel):
 
 
 class CreateSleepRequest(BaseModel):
-    """Body shape for POST /api/sleep. The iOS Shortcut sends one of
-    these every time it syncs Apple Health overnight-sleep data.
+    """Body shape for POST /api/sleep. The iOS Shortcut Angela built
+    sends camelCase keys (FallAsleepTime / WakeUpTime / TotalSleepTimeHr)
+    because that's what Apple Shortcuts auto-names variables when
+    pulling from Health Samples — the keys mirror the Shortcut variable
+    names directly.
+
+    Internally we keep snake_case + minutes for consistency with
+    everything else (steps.timestamp, sleep.bedtime, etc.). Pydantic
+    aliases bridge the two: the API surface accepts what the Shortcut
+    actually sends, the rest of the codebase stays clean.
 
     `night_of` is NOT accepted from the client — the service computes
     it from wake_time's CT date minus 1 day. Per CLAUDE.md, identity
     and derived fields come from the server, not the body.
     """
 
-    bedtime: datetime
-    wake_time: datetime
-    duration_min: int = Field(ge=0, le=1440)
+    # Accept BOTH the client's camelCase keys (via alias) AND the
+    # internal snake_case names (via populate_by_name) so curl tests
+    # and the iOS Shortcut both work.
+    model_config = ConfigDict(populate_by_name=True)
+
+    bedtime: Annotated[datetime, Field(alias="FallAsleepTime")]
+    wake_time: Annotated[datetime, Field(alias="WakeUpTime")]
+    # Total sleep time in HOURS (the Shortcut divides seconds by 3600).
+    # The route multiplies by 60 → duration_min before insert.
+    total_sleep_hours: Annotated[
+        float, Field(alias="TotalSleepTimeHr", ge=0, le=24)
+    ]
     rem_minutes: Optional[int] = Field(default=None, ge=0)
     core_minutes: Optional[int] = Field(default=None, ge=0)
     deep_minutes: Optional[int] = Field(default=None, ge=0)
