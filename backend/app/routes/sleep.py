@@ -179,10 +179,22 @@ def create_sleep(
     user_id: int = Depends(require_user),
 ) -> CreateSleepResponse:
     """POST /api/sleep — write one night's sleep row on behalf of the
-    Bearer-token user. Called by the iOS Shortcut every morning when
-    Apple Health sleep data is synced. `user_id` is resolved from the
-    token; `night_of` is computed by the service from wake_time's CT
-    date (NEVER trusted from the body, per CLAUDE.md)."""
+    Bearer-token user. Called by Angela's iOS Shortcut every morning
+    when Apple Health sleep data is synced.
+
+    The Shortcut sends `TotalSleepTimeHr` as a decimal number of hours
+    (its Calculate-Statistics step divides the sum of sample durations
+    by 3600). We convert hours → minutes here so the DB column stays
+    integer minutes and matches steps.timestamp/duration conventions.
+
+    `user_id` is resolved from the token; `night_of` is computed by
+    the service from wake_time's CT date (NEVER trusted from the body,
+    per CLAUDE.md)."""
+    # hours (decimal) → minutes (int), rounded to nearest minute.
+    # total_sleep_hours is schema-bounded to [0, 24], so this lands in
+    # [0, 1440] — within the DB CHECK on duration_min — without a clamp.
+    duration_min = round(req.total_sleep_hours * 60)
+
     try:
         with db.get_engine().begin() as conn:
             result = svc.create_sleep(
@@ -190,7 +202,7 @@ def create_sleep(
                 user_id=user_id,
                 bedtime=req.bedtime,
                 wake_time=req.wake_time,
-                duration_min=req.duration_min,
+                duration_min=duration_min,
                 rem_minutes=req.rem_minutes,
                 core_minutes=req.core_minutes,
                 deep_minutes=req.deep_minutes,
