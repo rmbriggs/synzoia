@@ -8,6 +8,8 @@ the right user (never spoofable via body), duplicate nights return
 409, malformed timestamps return 422.
 """
 
+import json
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import StaticPool
@@ -54,6 +56,18 @@ def _engine_with_users():
         )
         conn.execute(
             text(
+                "CREATE TABLE posts ("
+                "id integer primary key autoincrement, "
+                "user_id integer not null, "
+                "username text not null, "
+                "type text not null, "
+                "timestamp text not null, "
+                "details text, "
+                "body text)"
+            )
+        )
+        conn.execute(
+            text(
                 "INSERT INTO profiles (username, token, join_date) "
                 "VALUES (:u, :t, :j)"
             ),
@@ -77,6 +91,13 @@ def _count_sleep(engine, user_id=None) -> int:
                 {"uid": user_id},
             ).scalar()
             or 0
+        )
+
+
+def _count_posts(engine) -> int:
+    with engine.connect() as conn:
+        return int(
+            conn.execute(text("SELECT count(*) FROM posts")).scalar() or 0
         )
 
 
@@ -283,3 +304,64 @@ def test_post_sleep_duplicate_night_returns_409(monkeypatch):
     assert second.json()["error"]["code"] == "sleep_already_posted"
 
     assert _count_sleep(engine, user_id=1) == 1
+
+
+def test_post_sleep_creates_feed_post(monkeypatch):
+    engine = _engine_with_users()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    resp = TestClient(main.app).post(
+        "/api/sleep",
+        json={
+            "bedtime": "2026-05-28T05:00:00",
+            "wake_time": "2026-05-28T12:32:00",
+            "duration_min": 452,
+        },
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+    assert resp.status_code == 201, resp.text
+
+    with engine.connect() as conn:
+        post = (
+            conn.execute(
+                text(
+                    "SELECT username, type, timestamp, details, body "
+                    "FROM posts"
+                )
+            )
+            .mappings()
+            .one()
+        )
+        sleep_night = conn.execute(
+            text("SELECT night_of FROM sleep")
+        ).scalar()
+
+    assert post["username"] == "alice"
+    assert post["type"] == "sleep"
+    assert post["body"] == "slept 7h 32m"
+    details = json.loads(post["details"])
+    assert details["duration_min"] == 452
+    assert details["night_of"] == sleep_night
+    # Post timestamp anchors to wake_time so morning syncs land on top.
+    assert "2026-05-28T12:32:00" in post["timestamp"]
+
+
+def test_duplicate_night_creates_no_second_post(monkeypatch):
+    engine = _engine_with_users()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+    client = TestClient(main.app)
+    body = {
+        "bedtime": "2026-05-28T05:00:00",
+        "wake_time": "2026-05-28T12:32:00",
+        "duration_min": 452,
+    }
+    headers = {"Authorization": f"Bearer {ALICE_TOKEN}"}
+
+    first = client.post("/api/sleep", json=body, headers=headers)
+    assert first.status_code == 201
+    second = client.post("/api/sleep", json=body, headers=headers)
+    assert second.status_code == 409
+
+    # The duplicate night rolled back — exactly one post, one sleep row.
+    assert _count_posts(engine) == 1
+    assert _count_sleep(engine) == 1

@@ -22,6 +22,7 @@ fragile date casts in SQL.
 
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from typing import Iterable, Optional
@@ -583,4 +584,60 @@ def create_sleep(
             else None
         ),
         night_of=_ensure_date(row["night_of"]),
+    )
+
+
+def _format_sleep_body(duration_min: int) -> str:
+    """Pre-rendered feed text, e.g. 'slept 7h 32m'. Mirrors how
+    steps_milestone posts store a ready-to-display body."""
+    hours, minutes = divmod(duration_min, 60)
+    return f"slept {hours}h {minutes}m"
+
+
+def create_sleep_post(
+    conn: Connection,
+    user_id: int,
+    duration_min: int,
+    night_of: date,
+    wake_time: datetime,
+) -> None:
+    """Insert one feed post for a logged night. Called from the sleep
+    route in the SAME transaction as create_sleep, so a duplicate-night
+    rollback (409) takes the post with it. `type='sleep'` is already an
+    allowed post type (migration 0007 CHECK). The username is looked up
+    server-side — never trusted from the request body."""
+    username_row = (
+        conn.execute(
+            text("SELECT username FROM profiles WHERE id = :uid"),
+            {"uid": user_id},
+        )
+        .mappings()
+        .first()
+    )
+    if username_row is None:
+        return
+    details_str = json.dumps(
+        {"duration_min": duration_min, "night_of": night_of.isoformat()}
+    )
+    # Store wake_time as an ISO-8601 string so SQLite keeps the 'T'
+    # separator (datetime objects get serialized as '2026-05-28 12:32:00'
+    # by the SQLite adapter, which would break the timestamp assertion).
+    ts_str = (
+        wake_time.isoformat()
+        if isinstance(wake_time, datetime)
+        else str(wake_time)
+    )
+    conn.execute(
+        text(
+            "INSERT INTO posts "
+            "(user_id, username, type, timestamp, details, body) "
+            "VALUES (:uid, :u, 'sleep', :ts, :details, :body)"
+        ),
+        {
+            "uid": user_id,
+            "u": username_row["username"],
+            "ts": ts_str,
+            "details": details_str,
+            "body": _format_sleep_body(duration_min),
+        },
     )

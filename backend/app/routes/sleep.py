@@ -185,7 +185,7 @@ def create_sleep(
     date (NEVER trusted from the body, per CLAUDE.md)."""
     try:
         with db.get_engine().begin() as conn:
-            return svc.create_sleep(
+            result = svc.create_sleep(
                 conn,
                 user_id=user_id,
                 bedtime=req.bedtime,
@@ -196,6 +196,14 @@ def create_sleep(
                 deep_minutes=req.deep_minutes,
                 awake_minutes=req.awake_minutes,
             )
+            svc.create_sleep_post(
+                conn,
+                user_id=user_id,
+                duration_min=result.duration_min,
+                night_of=result.night_of,
+                wake_time=result.wake_time,
+            )
+            return result
     except ValueError as e:
         # wake_time <= bedtime, caught in the service before SQL fires.
         raise AppError(422, "invalid_sleep", str(e)) from e
