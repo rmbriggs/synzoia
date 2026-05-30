@@ -10,6 +10,7 @@ import FeedSkeleton from '@/components/feed/FeedSkeleton';
 import GenericPost from '@/components/feed/GenericPost';
 import MilestonePost from '@/components/feed/MilestonePost';
 import RecapPost from '@/components/feed/RecapPost';
+import SleepPost from '@/components/feed/SleepPost';
 import { ApiError } from '@/api/client';
 import { getUserFeed, type FeedPost } from '@/api/posts';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -325,6 +326,7 @@ function FeedPanel({ username }: { username: string }) {
       {query.data.posts.map((post: FeedPost) => {
         if (post.type === 'leaderboard_recap') return <RecapPost key={post.id} post={post} />;
         if (post.type === 'steps_milestone') return <MilestonePost key={post.id} post={post} />;
+        if (post.type === 'sleep') return <SleepPost key={post.id} post={post} />;
         return <GenericPost key={post.id} post={post} />;
       })}
     </div>
