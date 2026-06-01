@@ -12,6 +12,7 @@ from backend.app.routes import posts as posts_routes
 from backend.app.routes import profiles as profiles_routes
 from backend.app.routes import sleep as sleep_routes
 from backend.app.routes import steps as steps_routes
+from backend.app.routes import workouts as workouts_routes
 
 app = FastAPI(title="synzoia")
 register_error_handlers(app)
@@ -20,12 +21,13 @@ app.include_router(posts_routes.router)
 app.include_router(cron_routes.router)
 app.include_router(profiles_routes.router)
 app.include_router(sleep_routes.router)
+app.include_router(workouts_routes.router)
 
 # Live tables after migrations 0003 (pivot) + 0004 (steps) + 0005 (posts)
-# + 0008 (sleep). Hardcoded — never inject user input here; names are
-# interpolated into raw SQL because Postgres won't accept bind params
-# for identifiers.
-_TABLES = ("profiles", "steps", "posts", "sleep")
+# + 0008 (sleep) + 0010 (workouts → runs + calorie_buckets). Hardcoded —
+# never inject user input here; names are interpolated into raw SQL because
+# Postgres won't accept bind params for identifiers.
+_TABLES = ("profiles", "steps", "posts", "sleep", "runs", "calorie_buckets")
 _DUMP_LIMIT = 100
 
 
