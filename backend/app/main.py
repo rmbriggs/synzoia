@@ -24,10 +24,10 @@ app.include_router(sleep_routes.router)
 app.include_router(workouts_routes.router)
 
 # Live tables after migrations 0003 (pivot) + 0004 (steps) + 0005 (posts)
-# + 0008 (sleep) + 0010 (workouts). Hardcoded — never inject user input
-# here; names are interpolated into raw SQL because Postgres won't
-# accept bind params for identifiers.
-_TABLES = ("profiles", "steps", "posts", "sleep", "workouts")
+# + 0008 (sleep) + 0010 (workouts → runs + calorie_buckets). Hardcoded —
+# never inject user input here; names are interpolated into raw SQL because
+# Postgres won't accept bind params for identifiers.
+_TABLES = ("profiles", "steps", "posts", "sleep", "runs", "calorie_buckets")
 _DUMP_LIMIT = 100
 
 
