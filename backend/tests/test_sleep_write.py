@@ -1,33 +1,38 @@
-"""HTTP-level tests for POST /api/sleep + Bearer-token auth.
+"""HTTP-level tests for POST /api/sleep — the new sessionization path.
 
-The write path:
-- Resolves `user_id` from the `Authorization: Bearer <token>` header.
-- Accepts Angela's iOS Shortcut payload (camelCase keys, hours as
-  decimal): `FallAsleepTime`, `WakeUpTime`, `TotalSleepTimeHr`.
-- Converts hours → minutes server-side and stores integer minutes
-  in `duration_min`.
-- Computes `night_of` server-side from wake_time's CT date minus 1
-  day (NEVER trusted from the body).
+Replaces the old hours-based test suite. The iOS Shortcut now sends
+RAW HealthKit samples as five newline-joined strings plus a capture
+timestamp; the backend parses, sessionizes, classifies, dedupes,
+and returns an array of one or more session records.
 
-These tests exercise the wire: valid token inserts a row, missing/bad
-token returns 401, the row is owned by the right user (never
-spoofable via body), duplicate nights return 409, malformed payloads
-return 422.
+Tests here cover:
+- Auth (token required, missing/bad → 401)
+- Happy path: the test-oracle night from the spec produces ~508 min
+  asleep with Core/Deep/REM breakdown and a single wakeup.
+- Sessionization: a night + a daytime nap arrive in the same payload
+  and land as two separate sessions.
+- Overlap dedup: re-posting the same window updates the existing row
+  rather than creating a duplicate.
+- Provisional → final transition: a payload captured mid-session is
+  provisional; the same session captured >30 min after wake is final.
+- Anti-spoofing: user_id in the body is ignored.
+- Validation: mismatched array lengths → 422.
 """
 
-import json
+from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import StaticPool
 
 from backend.app import db, main
-from backend.app.services.sleep import _format_sleep_body
 
 
 ALICE_TOKEN = "ALCE-AAAA-AAAA-AAAA"
 BOB_TOKEN = "BOBB-BBBB-BBBB-BBBB"
+
+
+# ----- In-memory DB harness ----------------------------------------------
 
 
 def _engine_with_users():
@@ -46,6 +51,8 @@ def _engine_with_users():
                 "join_date text not null default (datetime('now')))"
             )
         )
+        # Post-0009 sleep shape: BIGSERIAL id, full session columns,
+        # no UNIQUE(user_id, night_of).
         conn.execute(
             text(
                 "CREATE TABLE sleep ("
@@ -59,8 +66,13 @@ def _engine_with_users():
                 "deep_minutes integer, "
                 "awake_minutes integer, "
                 "night_of text not null, "
-                "created_at text not null default (datetime('now')), "
-                "unique (user_id, night_of))"
+                "session_type text not null default 'night', "
+                "status text not null default 'final', "
+                "review_flag integer not null default 0, "
+                "captured_at text not null default (datetime('now')), "
+                "onset_at text not null, "
+                "sleep_date text not null, "
+                "created_at text not null default (datetime('now')))"
             )
         )
         conn.execute(
@@ -103,96 +115,93 @@ def _count_sleep(engine, user_id=None) -> int:
         )
 
 
-def _count_posts(engine) -> int:
-    with engine.connect() as conn:
-        return int(
-            conn.execute(text("SELECT count(*) FROM posts")).scalar() or 0
-        )
+# ----- Sample payload (the test oracle from the spec) ---------------------
 
 
-# Default Shortcut-shaped payload (camelCase keys, hours).
-def _payload(**overrides):
-    base = {
-        "FallAsleepTime": "2026-05-23T03:00:00",
-        "WakeUpTime": "2026-05-23T11:00:00",
-        "TotalSleepTimeHr": 7.5,  # 7.5h → 450 min
+# May 25 2026 night: 12:07 AM → 8:52 AM, includes the awake gaps and
+# stages from Angela's webhook capture. Used as the gold reference.
+_NIGHT_VALUES = (
+    "Deep\nCore\nAwake\nCore\nREM\nCore\nREM\nCore\nDeep\nCore\nDeep\nCore\n"
+    "Awake\nCore\nREM\nCore\nDeep\nCore\nDeep\nCore\nREM\nCore\nAwake\nCore\n"
+    "REM\nCore\nAwake\nCore\nREM\nCore\nAwake\nCore"
+)
+_NIGHT_STARTS = (
+    "May 25, 2026 at 12:07 AM\nMay 25, 2026 at 12:21 AM\n"
+    "May 25, 2026 at 12:29 AM\nMay 25, 2026 at 12:30 AM\n"
+    "May 25, 2026 at 12:38 AM\nMay 25, 2026 at 12:42 AM\n"
+    "May 25, 2026 at 1:40 AM\nMay 25, 2026 at 2:08 AM\n"
+    "May 25, 2026 at 2:32 AM\nMay 25, 2026 at 2:40 AM\n"
+    "May 25, 2026 at 3:02 AM\nMay 25, 2026 at 3:02 AM\n"
+    "May 25, 2026 at 3:09 AM\nMay 25, 2026 at 3:11 AM\n"
+    "May 25, 2026 at 3:17 AM\nMay 25, 2026 at 3:57 AM\n"
+    "May 25, 2026 at 4:24 AM\nMay 25, 2026 at 4:25 AM\n"
+    "May 25, 2026 at 4:31 AM\nMay 25, 2026 at 4:51 AM\n"
+    "May 25, 2026 at 4:59 AM\nMay 25, 2026 at 5:29 AM\n"
+    "May 25, 2026 at 6:06 AM\nMay 25, 2026 at 6:07 AM\n"
+    "May 25, 2026 at 6:13 AM\nMay 25, 2026 at 6:43 AM\n"
+    "May 25, 2026 at 7:28 AM\nMay 25, 2026 at 7:39 AM\n"
+    "May 25, 2026 at 7:49 AM\nMay 25, 2026 at 8:23 AM\n"
+    "May 25, 2026 at 8:36 AM\nMay 25, 2026 at 8:38 AM"
+)
+_NIGHT_ENDS = (
+    "May 25, 2026 at 12:21 AM\nMay 25, 2026 at 12:29 AM\n"
+    "May 25, 2026 at 12:30 AM\nMay 25, 2026 at 12:38 AM\n"
+    "May 25, 2026 at 12:42 AM\nMay 25, 2026 at 1:40 AM\n"
+    "May 25, 2026 at 2:08 AM\nMay 25, 2026 at 2:32 AM\n"
+    "May 25, 2026 at 2:40 AM\nMay 25, 2026 at 3:02 AM\n"
+    "May 25, 2026 at 3:02 AM\nMay 25, 2026 at 3:09 AM\n"
+    "May 25, 2026 at 3:11 AM\nMay 25, 2026 at 3:17 AM\n"
+    "May 25, 2026 at 3:57 AM\nMay 25, 2026 at 4:24 AM\n"
+    "May 25, 2026 at 4:25 AM\nMay 25, 2026 at 4:31 AM\n"
+    "May 25, 2026 at 4:51 AM\nMay 25, 2026 at 4:59 AM\n"
+    "May 25, 2026 at 5:29 AM\nMay 25, 2026 at 6:06 AM\n"
+    "May 25, 2026 at 6:07 AM\nMay 25, 2026 at 6:13 AM\n"
+    "May 25, 2026 at 6:43 AM\nMay 25, 2026 at 7:28 AM\n"
+    "May 25, 2026 at 7:39 AM\nMay 25, 2026 at 7:49 AM\n"
+    "May 25, 2026 at 8:23 AM\nMay 25, 2026 at 8:36 AM\n"
+    "May 25, 2026 at 8:38 AM\nMay 25, 2026 at 8:52 AM"
+)
+_NIGHT_TYPES = "\n".join(["Sleep"] * 32)
+_NIGHT_DURATION = (
+    "14:01\n8:00\n30\n8:30\n4:00\n57:35\n28:02\n24:32\n7:30\n22:02\n30\n7:00\n"
+    "2:00\n5:30\n40:33\n26:32\n1:30\n6:00\n19:31\n8:00\n30:02\n37:03\n30\n"
+    "6:00\n30:32\n45:03\n10:30\n10:00\n34:33\n13:01\n1:30\n14:01"
+)
+
+
+def _night_payload(timestamp: str = "2026-05-26T09:00:00-04:00") -> dict:
+    """The test-oracle night, captured by default at 9 AM the next day
+    (so wake at 8:52 AM means the session is finalized, not provisional)."""
+    return {
+        "values": _NIGHT_VALUES,
+        "starts": _NIGHT_STARTS,
+        "ends": _NIGHT_ENDS,
+        "types": _NIGHT_TYPES,
+        "duration": _NIGHT_DURATION,
+        "timestamp": timestamp,
     }
-    base.update(overrides)
-    return base
 
 
-# ---------------------------------------------------------------------------
-# Happy path
-# ---------------------------------------------------------------------------
+# ----- Auth tests ---------------------------------------------------------
 
 
-def test_post_sleep_inserts_row_for_token_owner(monkeypatch):
+def test_ingest_without_auth_returns_401(monkeypatch):
     engine = _engine_with_users()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
-    response = TestClient(main.app).post(
-        "/api/sleep",
-        json={
-            **_payload(),
-            "rem_minutes": 95,
-            "core_minutes": 240,
-            "deep_minutes": 85,
-            "awake_minutes": 40,
-        },
-        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
-    )
-
-    assert response.status_code == 201
-    body = response.json()
-    assert body["user_id"] == 1  # alice
-    # 7.5 hours → 450 minutes (round)
-    assert body["duration_min"] == 450
-    assert body["rem_minutes"] == 95
-    # night_of = wake_time's CT date − 1 day.
-    # 2026-05-23T11:00:00 (naive UTC) → 06:00 CT on 2026-05-23
-    # → wake_date = 2026-05-23, night_of = 2026-05-22
-    assert body["night_of"] == "2026-05-22"
-    assert _count_sleep(engine, user_id=1) == 1
-
-
-def test_post_sleep_accepts_snake_case_aliases_too(monkeypatch):
-    """For curl-from-terminal sanity, accept bedtime/wake_time/
-    total_sleep_hours as well (populate_by_name=True on the model).
-    The Shortcut uses camelCase; CLIs and tests can use snake_case."""
-    engine = _engine_with_users()
-    monkeypatch.setattr(db, "get_engine", lambda: engine)
-
-    response = TestClient(main.app).post(
-        "/api/sleep",
-        json={
-            "bedtime": "2026-05-23T03:00:00",
-            "wake_time": "2026-05-23T11:00:00",
-            "total_sleep_hours": 7.5,
-        },
-        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
-    )
-
-    assert response.status_code == 201
-    assert response.json()["duration_min"] == 450
-
-
-def test_post_sleep_without_auth_returns_401(monkeypatch):
-    engine = _engine_with_users()
-    monkeypatch.setattr(db, "get_engine", lambda: engine)
-
-    response = TestClient(main.app).post("/api/sleep", json=_payload())
+    response = TestClient(main.app).post("/api/sleep", json=_night_payload())
 
     assert response.status_code == 401
     assert _count_sleep(engine) == 0
 
 
-def test_post_sleep_with_bad_token_returns_401(monkeypatch):
+def test_ingest_with_bad_token_returns_401(monkeypatch):
     engine = _engine_with_users()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     response = TestClient(main.app).post(
         "/api/sleep",
-        json=_payload(),
+        json=_night_payload(),
         headers={"Authorization": "Bearer not_a_real_token"},
     )
 
@@ -200,178 +209,283 @@ def test_post_sleep_with_bad_token_returns_401(monkeypatch):
     assert _count_sleep(engine) == 0
 
 
-# ---------------------------------------------------------------------------
-# Body validation
-# ---------------------------------------------------------------------------
+# ----- Happy path: test-oracle night --------------------------------------
 
 
-def test_post_sleep_with_wake_before_bed_returns_422(monkeypatch):
+def test_ingest_night_payload_matches_oracle(monkeypatch):
+    """The spec's golden values: total_asleep ≈ 508, Core ≈ 299,
+    REM ≈ 166, Deep ≈ 43, awake ≈ 17, type=night, status=final.
+    We allow ±1 minute slop because we truncate seconds → minutes."""
     engine = _engine_with_users()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     response = TestClient(main.app).post(
         "/api/sleep",
-        json=_payload(
-            FallAsleepTime="2026-05-23T11:00:00",
-            WakeUpTime="2026-05-23T03:00:00",
-        ),
+        json=_night_payload(),
         headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
     )
 
-    assert response.status_code == 422
-    assert _count_sleep(engine) == 0
+    assert response.status_code == 201, response.json()
+    body = response.json()
+    sessions = body["sessions"]
+    assert len(sessions) == 1
+    s = sessions[0]
 
+    assert s["user_id"] == 1  # alice
+    assert s["session_type"] == "night"
+    assert s["status"] == "final"
+    assert s["review_flag"] is False
 
-def test_post_sleep_with_negative_hours_returns_422(monkeypatch):
-    engine = _engine_with_users()
-    monkeypatch.setattr(db, "get_engine", lambda: engine)
-
-    response = TestClient(main.app).post(
-        "/api/sleep",
-        json=_payload(TotalSleepTimeHr=-0.5),
-        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
-    )
-
-    assert response.status_code == 422
-    assert _count_sleep(engine) == 0
-
-
-def test_post_sleep_with_implausible_hours_returns_422(monkeypatch):
-    engine = _engine_with_users()
-    monkeypatch.setattr(db, "get_engine", lambda: engine)
-
-    # 25 hours — above the 24-hour Field cap on TotalSleepTimeHr.
-    response = TestClient(main.app).post(
-        "/api/sleep",
-        json=_payload(
-            WakeUpTime="2026-05-24T04:00:00",
-            TotalSleepTimeHr=25,
-        ),
-        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
-    )
-
-    assert response.status_code == 422
-    assert _count_sleep(engine) == 0
-
-
-# ---------------------------------------------------------------------------
-# Anti-spoofing + idempotency
-# ---------------------------------------------------------------------------
-
-
-def test_post_sleep_user_id_is_resolved_from_token_not_body(monkeypatch):
-    """Malicious body sends user_id=2 (bob). Row must still land
-    under alice because she owns the token."""
-    engine = _engine_with_users()
-    monkeypatch.setattr(db, "get_engine", lambda: engine)
-
-    response = TestClient(main.app).post(
-        "/api/sleep",
-        json={**_payload(), "user_id": 2},  # ignored
-        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
-    )
-
-    assert response.status_code == 201
-    assert response.json()["user_id"] == 1
+    # Oracle: 508 min asleep (±1 for truncation)
+    assert 506 <= s["total_asleep_min"] <= 510, s["total_asleep_min"]
+    # Per-stage (±1)
+    assert 297 <= s["core_min"] <= 301, s["core_min"]
+    assert 164 <= s["rem_min"] <= 168, s["rem_min"]
+    assert 41 <= s["deep_min"] <= 45, s["deep_min"]
+    # Awake total ≈ 17 min
+    assert 15 <= s["awake_min"] <= 19, s["awake_min"]
+    # One wakeup at the 5-min threshold (the 57:35 Awake run)
+    assert s["wakeups"] == 1
+    # Efficiency ~97%
+    assert 0.94 <= s["efficiency"] <= 1.0
+    # Stored as one row
     assert _count_sleep(engine, user_id=1) == 1
-    assert _count_sleep(engine, user_id=2) == 0
 
 
-def test_post_sleep_night_of_is_not_trusted_from_body(monkeypatch):
-    """A client sending night_of in the body should NOT be able to
-    pick a date; the service computes it from wake_time."""
+# ----- Sessionization: night + nap ----------------------------------------
+
+
+def test_ingest_night_and_nap_become_two_sessions(monkeypatch):
+    """One night session (00:00-08:00) + an afternoon nap (14:00-14:45)
+    in the same payload should land as TWO rows: one 'night', one 'nap'."""
     engine = _engine_with_users()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
+    payload = {
+        "values": "Core\nDeep\nCore\nCore\nDeep",
+        "starts": (
+            "May 25, 2026 at 12:00 AM\n"  # night begins
+            "May 25, 2026 at 4:00 AM\n"
+            "May 25, 2026 at 7:00 AM\n"
+            "May 25, 2026 at 2:00 PM\n"  # nap begins (8h gap)
+            "May 25, 2026 at 2:20 PM"
+        ),
+        "ends": (
+            "May 25, 2026 at 4:00 AM\n"
+            "May 25, 2026 at 7:00 AM\n"
+            "May 25, 2026 at 8:00 AM\n"
+            "May 25, 2026 at 2:20 PM\n"
+            "May 25, 2026 at 2:45 PM"
+        ),
+        "types": "Sleep\nSleep\nSleep\nSleep\nSleep",
+        "duration": "240:00\n180:00\n60:00\n20:00\n25:00",
+        "timestamp": "2026-05-25T18:00:00-04:00",
+    }
+
     response = TestClient(main.app).post(
         "/api/sleep",
-        json={**_payload(), "night_of": "1999-01-01"},  # ignored
+        json=payload,
         headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
     )
 
-    assert response.status_code == 201
-    assert response.json()["night_of"] != "1999-01-01"
+    assert response.status_code == 201, response.json()
+    sessions = response.json()["sessions"]
+    assert len(sessions) == 2
+    types_seen = {s["session_type"] for s in sessions}
+    assert types_seen == {"night", "nap"}
+    assert _count_sleep(engine, user_id=1) == 2
 
 
-def test_post_sleep_duplicate_night_returns_409(monkeypatch):
+# ----- Overlap dedup ------------------------------------------------------
+
+
+def test_reposting_same_window_updates_existing_row(monkeypatch):
+    """The Shortcut polls every 30 min and sends overlapping windows.
+    Two POSTs of the SAME night must result in ONE row, not two."""
     engine = _engine_with_users()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     client = TestClient(main.app)
     headers = {"Authorization": f"Bearer {ALICE_TOKEN}"}
 
-    first = client.post("/api/sleep", json=_payload(), headers=headers)
+    first = client.post("/api/sleep", json=_night_payload(), headers=headers)
     assert first.status_code == 201
-
-    second = client.post("/api/sleep", json=_payload(), headers=headers)
-    assert second.status_code == 409
-    assert second.json()["error"]["code"] == "sleep_already_posted"
     assert _count_sleep(engine, user_id=1) == 1
 
+    second = client.post("/api/sleep", json=_night_payload(), headers=headers)
+    assert second.status_code == 201
+    assert _count_sleep(engine, user_id=1) == 1  # still one row
 
-def test_post_sleep_creates_feed_post(monkeypatch):
+
+# ----- Provisional → final ------------------------------------------------
+
+
+def test_mid_session_capture_is_provisional(monkeypatch):
+    """If the payload is captured within 30 min of the last sample end,
+    the session is provisional."""
     engine = _engine_with_users()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
-    # _payload() default: 7.5h asleep, wake at 2026-05-23T11:00:00.
-    resp = TestClient(main.app).post(
+    # Capture at 9:00 AM, just 8 min after the 8:52 AM wake — provisional.
+    response = TestClient(main.app).post(
         "/api/sleep",
-        json=_payload(),
+        json=_night_payload(timestamp="2026-05-25T09:00:00-04:00"),
         headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
     )
-    assert resp.status_code == 201, resp.text
+
+    assert response.status_code == 201, response.json()
+    sessions = response.json()["sessions"]
+    assert len(sessions) == 1
+    assert sessions[0]["status"] == "provisional"
+
+
+def test_reingest_after_wake_flips_provisional_to_final(monkeypatch):
+    """A session first captured mid-stream is provisional; re-posting the
+    SAME completed session >30 min after wake must flip it to final
+    (and must not create a second row). This is the core settle-on-repoll
+    behavior the Shortcut's 30-min polling depends on."""
+    engine = _engine_with_users()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+    client = TestClient(main.app)
+    headers = {"Authorization": f"Bearer {ALICE_TOKEN}"}
+
+    # First poll: 8 min after the 8:52 AM wake → provisional.
+    first = client.post(
+        "/api/sleep",
+        json=_night_payload(timestamp="2026-05-25T09:00:00-04:00"),
+        headers=headers,
+    )
+    assert first.status_code == 201
+    assert first.json()["sessions"][0]["status"] == "provisional"
+
+    # Later poll of the same finished night, >3h after wake → final.
+    second = client.post(
+        "/api/sleep",
+        json=_night_payload(timestamp="2026-05-25T12:00:00-04:00"),
+        headers=headers,
+    )
+    assert second.status_code == 201
+    assert second.json()["sessions"][0]["status"] == "final"
+    assert _count_sleep(engine, user_id=1) == 1  # still one row
+
+
+def test_reingest_does_not_create_duplicate_feed_post(monkeypatch):
+    """A finalized night posts to the feed exactly once. Re-polling the
+    same finished session must NOT create a second 'sleep' post."""
+    engine = _engine_with_users()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+    client = TestClient(main.app)
+    headers = {"Authorization": f"Bearer {ALICE_TOKEN}"}
+
+    # Two polls of the same finished night (both final).
+    client.post("/api/sleep", json=_night_payload(), headers=headers)
+    client.post("/api/sleep", json=_night_payload(), headers=headers)
 
     with engine.connect() as conn:
-        post = (
-            conn.execute(
-                text(
-                    "SELECT username, type, timestamp, details, body "
-                    "FROM posts"
-                )
+        n = conn.execute(
+            text(
+                "SELECT count(*) FROM posts "
+                "WHERE user_id = 1 AND type = 'sleep'"
             )
-            .mappings()
-            .one()
-        )
-        sleep_night = conn.execute(
-            text("SELECT night_of FROM sleep")
         ).scalar()
-
-    assert post["username"] == "alice"
-    assert post["type"] == "sleep"
-    # 7.5h → 450 min → "slept 7h 30m"
-    assert post["body"] == "slept 7h 30m"
-    details = json.loads(post["details"])
-    assert details["duration_min"] == 450
-    assert details["night_of"] == sleep_night
-    # Post timestamp anchors to wake_time so morning syncs land on top.
-    assert "2026-05-23T11:00:00" in post["timestamp"]
+    assert n == 1, f"expected exactly one sleep feed post, got {n}"
 
 
-def test_duplicate_night_creates_no_second_post(monkeypatch):
+def test_night_sleep_date_anchored_to_central_time(monkeypatch):
+    """sleep_date is the Central-Time calendar date of the evening the
+    night began. The oracle night onsets 12:07 AM at -04:00 (Eastern) =
+    11:07 PM CT on May 24, so sleep_date must be 2026-05-24 regardless
+    of the phone's UTC offset (and must match the CT-bucketed read
+    aggregations)."""
     engine = _engine_with_users()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
-    client = TestClient(main.app)
-    headers = {"Authorization": f"Bearer {ALICE_TOKEN}"}
 
-    first = client.post("/api/sleep", json=_payload(), headers=headers)
-    assert first.status_code == 201
-    second = client.post("/api/sleep", json=_payload(), headers=headers)
-    assert second.status_code == 409
-
-    # The duplicate night rolled back — exactly one post, one sleep row.
-    assert _count_posts(engine) == 1
-    assert _count_sleep(engine) == 1
+    response = TestClient(main.app).post(
+        "/api/sleep",
+        json=_night_payload(),
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+    assert response.status_code == 201, response.json()
+    assert response.json()["sessions"][0]["sleep_date"] == "2026-05-24"
 
 
-@pytest.mark.parametrize(
-    "minutes,expected",
-    [
-        (452, "slept 7h 32m"),
-        (480, "slept 8h 0m"),
-        (60, "slept 1h 0m"),
-        (45, "slept 0h 45m"),
-        (0, "slept 0h 0m"),
-    ],
-)
-def test_format_sleep_body(minutes, expected):
-    assert _format_sleep_body(minutes) == expected
+def test_classification_uses_central_time_not_payload_offset(monkeypatch):
+    """Onset 8:30 PM at -04:00 (Eastern) is 7:30 PM CT, which is OUTSIDE
+    the 20:00-05:00 CT night window → 'nap'. Classifying on the payload
+    offset would wrongly call it 'night'."""
+    engine = _engine_with_users()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    payload = {
+        "values": "Core",
+        "starts": "May 25, 2026 at 8:30 PM",
+        "ends": "May 25, 2026 at 9:20 PM",
+        "types": "Sleep",
+        "duration": "50:00",
+        "timestamp": "2026-05-25T22:00:00-04:00",
+    }
+    response = TestClient(main.app).post(
+        "/api/sleep",
+        json=payload,
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+    assert response.status_code == 201, response.json()
+    assert response.json()["sessions"][0]["session_type"] == "nap"
+
+
+# ----- Anti-spoofing ------------------------------------------------------
+
+
+def test_user_id_in_body_is_ignored(monkeypatch):
+    engine = _engine_with_users()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    payload = _night_payload()
+    payload["user_id"] = 999  # ignored — Pydantic drops unknown fields
+
+    response = TestClient(main.app).post(
+        "/api/sleep",
+        json=payload,
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["sessions"][0]["user_id"] == 1  # alice, from token
+    assert _count_sleep(engine, user_id=1) == 1
+    assert _count_sleep(engine, user_id=999) == 0
+
+
+# ----- Payload validation -------------------------------------------------
+
+
+def test_mismatched_array_lengths_returns_422(monkeypatch):
+    engine = _engine_with_users()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    payload = _night_payload()
+    payload["values"] = "Core\nDeep"  # 2 entries while others have 32
+
+    response = TestClient(main.app).post(
+        "/api/sleep",
+        json=payload,
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+
+    assert response.status_code == 422
+    assert _count_sleep(engine) == 0
+
+
+def test_missing_offset_in_timestamp_returns_422(monkeypatch):
+    engine = _engine_with_users()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    payload = _night_payload(timestamp="2026-05-25T09:00:00")  # no offset
+
+    response = TestClient(main.app).post(
+        "/api/sleep",
+        json=payload,
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+
+    assert response.status_code == 422
+    assert _count_sleep(engine) == 0

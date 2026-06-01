@@ -15,23 +15,24 @@ from typing import Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy.exc import IntegrityError
 
 from backend.app import db
 from backend.app.auth import require_user
 from backend.app.errors import AppError
 from backend.app.schemas.sleep import (
-    CreateSleepRequest,
-    CreateSleepResponse,
     GlobalDailyResponse,
     GlobalSummaryResponse,
     GlobalWeeklyResponse,
+    IngestSleepRequest,
+    IngestSleepResponse,
+    SleepSessionResponse,
     UserDailyResponse,
     UserMonthlyResponse,
     UserSummaryResponse,
     UserWeeklyResponse,
 )
 from backend.app.services import sleep as svc
+from backend.app.services import sleep_sessions as sessions_svc
 
 router = APIRouter(prefix="/api/sleep", tags=["sleep"])
 
@@ -172,58 +173,88 @@ def user_summary(username: str) -> UserSummaryResponse:
 @router.post(
     "",
     status_code=status.HTTP_201_CREATED,
-    response_model=CreateSleepResponse,
+    response_model=IngestSleepResponse,
 )
-def create_sleep(
-    req: CreateSleepRequest,
+def ingest_sleep(
+    req: IngestSleepRequest,
     user_id: int = Depends(require_user),
-) -> CreateSleepResponse:
-    """POST /api/sleep — write one night's sleep row on behalf of the
-    Bearer-token user. Called by Angela's iOS Shortcut every morning
-    when Apple Health sleep data is synced.
+) -> IngestSleepResponse:
+    """POST /api/sleep — ingest a raw HealthKit sample window.
 
-    The Shortcut sends `TotalSleepTimeHr` as a decimal number of hours
-    (its Calculate-Statistics step divides the sum of sample durations
-    by 3600). We convert hours → minutes here so the DB column stays
-    integer minutes and matches steps.timestamp/duration conventions.
+    Angela's iOS Shortcut polls every ~30 min and sends the full
+    night-plus-naps window. We:
+      1. Parse the newline-joined sample arrays.
+      2. Sessionize on >60-min gaps (separates night from naps and
+         splits a night interrupted by a long awakening).
+      3. Classify each session as 'night' (onset 20:00-05:00 in the
+         payload's offset) or 'nap'.
+      4. Compute per-session metrics (asleep, awake, per-stage,
+         wakeups, efficiency).
+      5. Upsert with overlap-dedup so repeated polls of the same
+         in-progress session update the same row instead of creating
+         duplicates.
 
-    `user_id` is resolved from the token; `night_of` is computed by
-    the service from wake_time's CT date (NEVER trusted from the body,
-    per CLAUDE.md)."""
-    # hours (decimal) → minutes (int), rounded to nearest minute.
-    # total_sleep_hours is schema-bounded to [0, 24], so this lands in
-    # [0, 1440] — within the DB CHECK on duration_min — without a clamp.
-    duration_min = round(req.total_sleep_hours * 60)
+    Returns an array of persisted sessions (one entry per detected
+    session). `user_id` is resolved from the Bearer token.
 
+    Per CLAUDE.md: user_id is NEVER trusted from the body; all date /
+    time / classification fields are server-derived from the samples.
+    """
     try:
         with db.get_engine().begin() as conn:
-            result = svc.create_sleep(
+            sessions = sessions_svc.ingest_payload(
                 conn,
                 user_id=user_id,
-                bedtime=req.bedtime,
-                wake_time=req.wake_time,
-                duration_min=duration_min,
-                rem_minutes=req.rem_minutes,
-                core_minutes=req.core_minutes,
-                deep_minutes=req.deep_minutes,
-                awake_minutes=req.awake_minutes,
+                values=req.values,
+                starts=req.starts,
+                ends=req.ends,
+                types=req.types,
+                duration=req.duration,
+                timestamp=req.timestamp,
             )
-            svc.create_sleep_post(
-                conn,
-                user_id=user_id,
-                duration_min=result.duration_min,
-                night_of=result.night_of,
-                wake_time=result.wake_time,
+            # Best-effort feed-post for newly-final sessions. Provisional
+            # rows don't fire a post — we wait for the row to settle.
+            # (Implemented by the service layer; here we just emit the
+            # response.)
+            for s in sessions:
+                if s.status == "final":
+                    svc.maybe_create_sleep_session_post(
+                        conn,
+                        session=s,
+                    )
+            return IngestSleepResponse(
+                sessions=[
+                    SleepSessionResponse(
+                        id=s.id or 0,
+                        user_id=s.user_id or user_id,
+                        session_type=s.session_type,
+                        status=s.status,
+                        review_flag=s.review_flag,
+                        sleep_date=s.sleep_date,
+                        onset=s.onset,
+                        wake=s.wake,
+                        time_in_bed_min=s.time_in_bed_min,
+                        total_asleep_min=s.total_asleep_min,
+                        awake_min=s.awake_min,
+                        core_min=s.core_min,
+                        deep_min=s.deep_min,
+                        rem_min=s.rem_min,
+                        wakeups=s.wakeups,
+                        efficiency=s.efficiency,
+                        captured_at=s.captured_at,
+                    )
+                    for s in sessions
+                ]
             )
-            return result
+    except sessions_svc.SleepPayloadError as e:
+        raise AppError(422, "invalid_payload", str(e)) from e
     except ValueError as e:
-        # wake_time <= bedtime, caught in the service before SQL fires.
+        # Defensive — any other ValueError from the service.
         raise AppError(422, "invalid_sleep", str(e)) from e
-    except IntegrityError as e:
-        # UNIQUE (user_id, night_of) — Shortcut tried to double-post.
-        raise AppError(
-            409,
-            "sleep_already_posted",
-            "A sleep row already exists for this night. "
-            "Delete it first if you want to overwrite.",
-        ) from e
+    except Exception as e:
+        # Re-raise so FastAPI logs the traceback in Vercel logs.
+        # Intentionally not swallowed; this is a write path.
+        # noqa: BLE001 — diagnostic surface
+        raise
+
+
