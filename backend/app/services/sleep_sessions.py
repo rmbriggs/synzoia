@@ -301,19 +301,22 @@ def _onset_of(samples: list[RawSample]) -> datetime:
     return samples[0].start
 
 
-def _classify_session_type(onset: datetime) -> str:
-    """20:00-05:00 in the payload's local zone → night; else nap."""
-    h = onset.hour
+def _classify_session_type(onset_ct: datetime) -> str:
+    """20:00-05:00 Central Time → night; else nap. `onset_ct` must
+    already be expressed in Central Time (see _to_ct) — per the project
+    convention all date-of-day logic is CT-anchored, not phone-local."""
+    h = onset_ct.hour
     if h >= NIGHT_ONSET_START_H or h < NIGHT_ONSET_END_H:
         return "night"
     return "nap"
 
 
-def _ct_date_of(dt: datetime) -> date:
-    """Calendar date of `dt` viewed in Central Time."""
+def _to_ct(dt: datetime) -> datetime:
+    """`dt` expressed in Central Time. Naive datetimes are assumed UTC,
+    which is how they're stored in / read back from the DB."""
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(APP_TZ).date()
+    return dt.astimezone(APP_TZ)
 
 
 def build_session_record(
@@ -343,7 +346,8 @@ def build_session_record(
     rem_sec = sum(s.dur_sec for s in samples if s.value == STAGE_REM)
     awake_sec = sum(s.dur_sec for s in samples if s.value == STAGE_AWAKE)
 
-    session_type = _classify_session_type(onset)
+    onset_ct = _to_ct(onset)
+    session_type = _classify_session_type(onset_ct)
     total_asleep_min = total_asleep_sec // 60
     review_flag = (
         (session_type == "nap" and total_asleep_min > LONG_NAP_MIN)
@@ -361,13 +365,16 @@ def build_session_record(
         total_asleep_sec / time_in_bed_sec if time_in_bed_sec > 0 else 0.0
     )
 
-    # For sleep_date grouping: a night session "belongs to" the date
-    # of its onset's PREVIOUS day (the night you went to bed on). A
-    # nap belongs to the date it started on. Both are in CT.
-    onset_ct_date = _ct_date_of(onset)
+    # For sleep_date grouping: a night belongs to the CT date of the
+    # evening it began. An onset in the early-morning hours (before
+    # 05:00 CT) is the tail of the previous evening's night, so it rolls
+    # back one day; an evening onset (>= 20:00 CT) and naps use the
+    # onset's own CT date. Everything is CT-anchored (via onset_ct) so
+    # sleep_date matches the CT-bucketed read-side aggregations.
+    onset_ct_date = onset_ct.date()
     sleep_date = (
         onset_ct_date - timedelta(days=1)
-        if session_type == "night" and onset.hour < NIGHT_ONSET_END_H
+        if session_type == "night" and onset_ct.hour < NIGHT_ONSET_END_H
         else onset_ct_date
     )
 
@@ -571,18 +578,28 @@ def upsert_session(
         out.user_id = user_id
         return out
 
-    # Keep the later wake. If the incoming wake is earlier than the
-    # existing wake, the existing row is more complete — bump
-    # captured_at on the existing row (so it stays "fresh" relative
-    # to provisional/final aging) and skip the metric replacement.
+    # Adopt the incoming snapshot when it is at least as complete (wake)
+    # AND at least as fresh (captured_at). The equal-wake case is the
+    # common one: the Shortcut re-polls a *finished* session (identical
+    # wake) hours later — that snapshot has a newer captured_at and a
+    # recomputed status, so it must replace the row to flip
+    # provisional → final. Only a strictly-later wake or an equal wake
+    # with a newer capture wins; a stale/less-complete poll must never
+    # downgrade an already-final row.
     # SQLite returns timestamps as strings, Postgres returns datetime;
     # normalize both sides to naive UTC datetime for comparison.
     existing_wake = _coerce_db_dt(existing["wake_time"])
+    existing_captured = _coerce_db_dt(existing["captured_at"])
     incoming_wake = _aware_to_naive_utc(rec.wake)
-    if incoming_wake > existing_wake:
+    incoming_captured = _aware_to_naive_utc(rec.captured_at)
+    if incoming_wake > existing_wake or (
+        incoming_wake == existing_wake
+        and incoming_captured >= existing_captured
+    ):
         _update_session(conn, int(existing["id"]), rec)
     else:
-        # Incoming snapshot is older or equal — only bump captured_at.
+        # Older or less-complete snapshot — only bump captured_at, and
+        # never below the current value or in a way that touches status.
         conn.execute(
             text(
                 "UPDATE sleep SET captured_at = :captured "
@@ -590,7 +607,7 @@ def upsert_session(
             ),
             {
                 "id": int(existing["id"]),
-                "captured": _aware_to_naive_utc(rec.captured_at),
+                "captured": incoming_captured,
             },
         )
 

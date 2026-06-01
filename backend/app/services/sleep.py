@@ -587,22 +587,28 @@ def maybe_create_sleep_session_post(conn: Connection, session) -> None:
         return
 
     # Idempotency: bail if any sleep post already exists for this
-    # (user, sleep_date). Cheap pre-check beats catching an integrity
-    # error and is enough for v1 since posts has no UNIQUE on
-    # (user_id, type, day).
+    # (user, sleep_date). We match on the `night_of` stored in the
+    # post's `details` JSON (create_sleep_post writes night_of =
+    # sleep_date) — NOT on `timestamp::date`, because the post is
+    # timestamped at wake_time, which lands on a *different* calendar
+    # day than sleep_date for a night that crosses midnight. Matching
+    # on timestamp's date never finds the prior post, so re-polls would
+    # create duplicate feed posts. Cheap pre-check beats catching an
+    # integrity error and is enough for v1 since posts has no UNIQUE on
+    # (user_id, type, sleep_date).
     existing = (
         conn.execute(
             text(
                 "SELECT id FROM posts "
                 "WHERE user_id = :uid AND type = 'sleep' "
-                "  AND timestamp::date = :sleep_date "
+                "  AND details->>'night_of' = :sleep_date "
                 "LIMIT 1"
             )
             if _engine_is_postgres(conn)
             else text(
                 "SELECT id FROM posts "
                 "WHERE user_id = :uid AND type = 'sleep' "
-                "  AND substr(timestamp, 1, 10) = :sleep_date "
+                "  AND json_extract(details, '$.night_of') = :sleep_date "
                 "LIMIT 1"
             ),
             {

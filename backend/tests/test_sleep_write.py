@@ -339,6 +339,100 @@ def test_mid_session_capture_is_provisional(monkeypatch):
     assert sessions[0]["status"] == "provisional"
 
 
+def test_reingest_after_wake_flips_provisional_to_final(monkeypatch):
+    """A session first captured mid-stream is provisional; re-posting the
+    SAME completed session >30 min after wake must flip it to final
+    (and must not create a second row). This is the core settle-on-repoll
+    behavior the Shortcut's 30-min polling depends on."""
+    engine = _engine_with_users()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+    client = TestClient(main.app)
+    headers = {"Authorization": f"Bearer {ALICE_TOKEN}"}
+
+    # First poll: 8 min after the 8:52 AM wake → provisional.
+    first = client.post(
+        "/api/sleep",
+        json=_night_payload(timestamp="2026-05-25T09:00:00-04:00"),
+        headers=headers,
+    )
+    assert first.status_code == 201
+    assert first.json()["sessions"][0]["status"] == "provisional"
+
+    # Later poll of the same finished night, >3h after wake → final.
+    second = client.post(
+        "/api/sleep",
+        json=_night_payload(timestamp="2026-05-25T12:00:00-04:00"),
+        headers=headers,
+    )
+    assert second.status_code == 201
+    assert second.json()["sessions"][0]["status"] == "final"
+    assert _count_sleep(engine, user_id=1) == 1  # still one row
+
+
+def test_reingest_does_not_create_duplicate_feed_post(monkeypatch):
+    """A finalized night posts to the feed exactly once. Re-polling the
+    same finished session must NOT create a second 'sleep' post."""
+    engine = _engine_with_users()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+    client = TestClient(main.app)
+    headers = {"Authorization": f"Bearer {ALICE_TOKEN}"}
+
+    # Two polls of the same finished night (both final).
+    client.post("/api/sleep", json=_night_payload(), headers=headers)
+    client.post("/api/sleep", json=_night_payload(), headers=headers)
+
+    with engine.connect() as conn:
+        n = conn.execute(
+            text(
+                "SELECT count(*) FROM posts "
+                "WHERE user_id = 1 AND type = 'sleep'"
+            )
+        ).scalar()
+    assert n == 1, f"expected exactly one sleep feed post, got {n}"
+
+
+def test_night_sleep_date_anchored_to_central_time(monkeypatch):
+    """sleep_date is the Central-Time calendar date of the evening the
+    night began. The oracle night onsets 12:07 AM at -04:00 (Eastern) =
+    11:07 PM CT on May 24, so sleep_date must be 2026-05-24 regardless
+    of the phone's UTC offset (and must match the CT-bucketed read
+    aggregations)."""
+    engine = _engine_with_users()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    response = TestClient(main.app).post(
+        "/api/sleep",
+        json=_night_payload(),
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+    assert response.status_code == 201, response.json()
+    assert response.json()["sessions"][0]["sleep_date"] == "2026-05-24"
+
+
+def test_classification_uses_central_time_not_payload_offset(monkeypatch):
+    """Onset 8:30 PM at -04:00 (Eastern) is 7:30 PM CT, which is OUTSIDE
+    the 20:00-05:00 CT night window → 'nap'. Classifying on the payload
+    offset would wrongly call it 'night'."""
+    engine = _engine_with_users()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    payload = {
+        "values": "Core",
+        "starts": "May 25, 2026 at 8:30 PM",
+        "ends": "May 25, 2026 at 9:20 PM",
+        "types": "Sleep",
+        "duration": "50:00",
+        "timestamp": "2026-05-25T22:00:00-04:00",
+    }
+    response = TestClient(main.app).post(
+        "/api/sleep",
+        json=payload,
+        headers={"Authorization": f"Bearer {ALICE_TOKEN}"},
+    )
+    assert response.status_code == 201, response.json()
+    assert response.json()["sessions"][0]["session_type"] == "nap"
+
+
 # ----- Anti-spoofing ------------------------------------------------------
 
 
