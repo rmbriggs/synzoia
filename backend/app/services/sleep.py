@@ -33,7 +33,6 @@ from sqlalchemy.engine import Connection
 
 from backend.app.schemas.sleep import (
     BestNightEver,
-    CreateSleepResponse,
     DailyTotal,
     GlobalDailyResponse,
     GlobalSummaryResponse,
@@ -508,83 +507,11 @@ def _night_of_for(wake_time: datetime) -> date:
     return wake_date - timedelta(days=1)
 
 
-def create_sleep(
-    conn: Connection,
-    user_id: int,
-    bedtime: datetime,
-    wake_time: datetime,
-    duration_min: int,
-    rem_minutes: Optional[int] = None,
-    core_minutes: Optional[int] = None,
-    deep_minutes: Optional[int] = None,
-    awake_minutes: Optional[int] = None,
-) -> CreateSleepResponse:
-    """Insert one sleep row. `user_id` was resolved from the Bearer
-    token by the route layer; never trust user_id from the body.
-    `night_of` is computed here so clients can't pick the wrong night.
-
-    Raises ValueError on a duplicate (user_id, night_of) — caller
-    should translate to 409. Raises ValueError on wake_time <=
-    bedtime too (the DB CHECK would catch it, but failing in Python
-    is cheaper and produces a cleaner error message)."""
-    if wake_time <= bedtime:
-        raise ValueError("wake_time must be after bedtime")
-
-    night_of = _night_of_for(wake_time)
-
-    row = (
-        conn.execute(
-            text(
-                "INSERT INTO sleep ("
-                "user_id, bedtime, wake_time, duration_min, "
-                "rem_minutes, core_minutes, deep_minutes, awake_minutes, "
-                "night_of"
-                ") VALUES ("
-                ":user_id, :bedtime, :wake_time, :duration_min, "
-                ":rem_minutes, :core_minutes, :deep_minutes, :awake_minutes, "
-                ":night_of"
-                ") RETURNING id, user_id, bedtime, wake_time, duration_min, "
-                "rem_minutes, core_minutes, deep_minutes, awake_minutes, "
-                "night_of"
-            ),
-            {
-                "user_id": user_id,
-                "bedtime": bedtime,
-                "wake_time": wake_time,
-                "duration_min": duration_min,
-                "rem_minutes": rem_minutes,
-                "core_minutes": core_minutes,
-                "deep_minutes": deep_minutes,
-                "awake_minutes": awake_minutes,
-                "night_of": night_of,
-            },
-        )
-        .mappings()
-        .one()
-    )
-
-    return CreateSleepResponse(
-        id=int(row["id"]),
-        user_id=int(row["user_id"]),
-        bedtime=row["bedtime"],
-        wake_time=row["wake_time"],
-        duration_min=int(row["duration_min"]),
-        rem_minutes=(
-            int(row["rem_minutes"]) if row["rem_minutes"] is not None else None
-        ),
-        core_minutes=(
-            int(row["core_minutes"]) if row["core_minutes"] is not None else None
-        ),
-        deep_minutes=(
-            int(row["deep_minutes"]) if row["deep_minutes"] is not None else None
-        ),
-        awake_minutes=(
-            int(row["awake_minutes"])
-            if row["awake_minutes"] is not None
-            else None
-        ),
-        night_of=_ensure_date(row["night_of"]),
-    )
+# NOTE: the legacy single-row-per-night `create_sleep` write path was
+# replaced by services/sleep_sessions.py:ingest_payload after migration
+# 0009 reshaped the table for multi-session ingestion. The helpers above
+# (_night_of_for, _ct_date, _ensure_date) are still used by the read
+# aggregations so they stay.
 
 
 def _format_sleep_body(duration_min: int) -> str:
@@ -641,3 +568,64 @@ def create_sleep_post(
             "body": _format_sleep_body(duration_min),
         },
     )
+
+
+def maybe_create_sleep_session_post(conn: Connection, session) -> None:
+    """Feed-post helper for the new sessionization path. Creates one
+    feed post per (user, sleep_date) for `session_type='night'`,
+    `status='final'` sessions. Idempotent: skips if a sleep post for
+    that (user, sleep_date) already exists.
+
+    Naps are deliberately NOT posted to the feed in v1 — too noisy and
+    we haven't designed the nap card yet. They still live in the
+    sleep table for analytics.
+
+    `session` is a SessionRecord from sleep_sessions.py."""
+    if session.session_type != "night" or session.status != "final":
+        return
+    if session.user_id is None:
+        return
+
+    # Idempotency: bail if any sleep post already exists for this
+    # (user, sleep_date). Cheap pre-check beats catching an integrity
+    # error and is enough for v1 since posts has no UNIQUE on
+    # (user_id, type, day).
+    existing = (
+        conn.execute(
+            text(
+                "SELECT id FROM posts "
+                "WHERE user_id = :uid AND type = 'sleep' "
+                "  AND timestamp::date = :sleep_date "
+                "LIMIT 1"
+            )
+            if _engine_is_postgres(conn)
+            else text(
+                "SELECT id FROM posts "
+                "WHERE user_id = :uid AND type = 'sleep' "
+                "  AND substr(timestamp, 1, 10) = :sleep_date "
+                "LIMIT 1"
+            ),
+            {
+                "uid": session.user_id,
+                "sleep_date": str(session.sleep_date),
+            },
+        )
+        .mappings()
+        .first()
+    )
+    if existing is not None:
+        return
+
+    create_sleep_post(
+        conn,
+        user_id=session.user_id,
+        duration_min=session.total_asleep_min,
+        night_of=session.sleep_date,
+        wake_time=session.wake,
+    )
+
+
+def _engine_is_postgres(conn: Connection) -> bool:
+    """SQLite ::date casts don't exist; substring on the ISO string is
+    portable. Detect dialect so we can pick the right SQL."""
+    return conn.engine.dialect.name == "postgresql"

@@ -14,9 +14,9 @@ server-side (token + CT-date math) and NEVER from the body.
 """
 
 from datetime import date, datetime
-from typing import Annotated, Optional
+from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
@@ -156,51 +156,55 @@ class UserSummaryResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class CreateSleepRequest(BaseModel):
-    """Body shape for POST /api/sleep. The iOS Shortcut Angela built
-    sends camelCase keys (FallAsleepTime / WakeUpTime / TotalSleepTimeHr)
-    because that's what Apple Shortcuts auto-names variables when
-    pulling from Health Samples — the keys mirror the Shortcut variable
-    names directly.
+class IngestSleepRequest(BaseModel):
+    """Body shape for POST /api/sleep — the *raw HealthKit samples*
+    payload Angela's iOS Shortcut produces.
 
-    Internally we keep snake_case + minutes for consistency with
-    everything else (steps.timestamp, sleep.bedtime, etc.). Pydantic
-    aliases bridge the two: the API surface accepts what the Shortcut
-    actually sends, the rest of the codebase stays clean.
+    Each of `values`, `starts`, `ends`, `types`, `duration` is a single
+    newline-joined string. They're index-aligned and must have equal
+    length. `timestamp` is the capture moment as ISO-8601 with offset
+    (the Shortcut formats Current Date this way), which is how we
+    determine the user's local wall clock for the sample timestamps.
 
-    `night_of` is NOT accepted from the client — the service computes
-    it from wake_time's CT date minus 1 day. Per CLAUDE.md, identity
-    and derived fields come from the server, not the body.
+    Sessionization, classification, dedup, and metric computation all
+    happen server-side — see services/sleep_sessions.py. The client
+    sends raw data, the server returns one row per detected session.
     """
 
-    # Accept BOTH the client's camelCase keys (via alias) AND the
-    # internal snake_case names (via populate_by_name) so curl tests
-    # and the iOS Shortcut both work.
-    model_config = ConfigDict(populate_by_name=True)
-
-    bedtime: Annotated[datetime, Field(alias="FallAsleepTime")]
-    wake_time: Annotated[datetime, Field(alias="WakeUpTime")]
-    # Total sleep time in HOURS (the Shortcut divides seconds by 3600).
-    # The route multiplies by 60 → duration_min before insert.
-    total_sleep_hours: Annotated[
-        float, Field(alias="TotalSleepTimeHr", ge=0, le=24)
-    ]
-    rem_minutes: Optional[int] = Field(default=None, ge=0)
-    core_minutes: Optional[int] = Field(default=None, ge=0)
-    deep_minutes: Optional[int] = Field(default=None, ge=0)
-    awake_minutes: Optional[int] = Field(default=None, ge=0)
+    values: str
+    starts: str
+    ends: str
+    types: str
+    duration: str
+    timestamp: str
 
 
-class CreateSleepResponse(BaseModel):
-    """Row returned to the client after a successful POST."""
+class SleepSessionResponse(BaseModel):
+    """One row of the response array returned by POST /api/sleep —
+    a detected sleep session (overnight OR nap), with its metrics
+    and provisional/final status."""
 
     id: int
     user_id: int
-    bedtime: datetime
-    wake_time: datetime
-    duration_min: int
-    rem_minutes: Optional[int] = None
-    core_minutes: Optional[int] = None
-    deep_minutes: Optional[int] = None
-    awake_minutes: Optional[int] = None
-    night_of: date
+    session_type: str  # 'night' | 'nap'
+    status: str        # 'provisional' | 'final'
+    review_flag: bool
+    sleep_date: date
+    onset: datetime
+    wake: datetime
+    time_in_bed_min: int
+    total_asleep_min: int
+    awake_min: int
+    core_min: int
+    deep_min: int
+    rem_min: int
+    wakeups: int
+    efficiency: float
+    captured_at: datetime
+
+
+class IngestSleepResponse(BaseModel):
+    """Wrapper so the response shape can grow (e.g., add `discarded`
+    metadata) without breaking existing clients."""
+
+    sessions: list[SleepSessionResponse]
