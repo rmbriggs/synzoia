@@ -212,39 +212,53 @@ def ingest_sleep(
                 duration=req.duration,
                 timestamp=req.timestamp,
             )
-            # Best-effort feed-post for newly-final sessions. Provisional
-            # rows don't fire a post — we wait for the row to settle.
-            # (Implemented by the service layer; here we just emit the
-            # response.)
+            # Best-effort feed-post for newly-final sessions. Fires for
+            # every persisted session — provisional rows skip the post
+            # because we wait for the row to settle.
             for s in sessions:
                 if s.status == "final":
                     svc.maybe_create_sleep_session_post(
                         conn,
                         session=s,
                     )
+            # Apple Health's "Start Date is in the last 1 day" filter
+            # is calendar-day-based, so the Shortcut routinely sends
+            # samples spanning two nights. The service stores ALL
+            # detected sessions (overlap-dedup keeps the DB clean), but
+            # the response only returns the latest one — that's what
+            # the client UI cares about for the "just woke up, post my
+            # night" flow. Earlier sessions remain queryable via GET.
+            latest = max(sessions, key=lambda s: s.wake) if sessions else None
             return IngestSleepResponse(
-                sessions=[
-                    SleepSessionResponse(
-                        id=s.id or 0,
-                        user_id=s.user_id or user_id,
-                        session_type=s.session_type,
-                        status=s.status,
-                        review_flag=s.review_flag,
-                        sleep_date=s.sleep_date,
-                        onset=s.onset,
-                        wake=s.wake,
-                        time_in_bed_min=s.time_in_bed_min,
-                        total_asleep_min=s.total_asleep_min,
-                        awake_min=s.awake_min,
-                        core_min=s.core_min,
-                        deep_min=s.deep_min,
-                        rem_min=s.rem_min,
-                        wakeups=s.wakeups,
-                        efficiency=s.efficiency,
-                        captured_at=s.captured_at,
-                    )
-                    for s in sessions
-                ]
+                sessions=(
+                    [
+                        SleepSessionResponse(
+                            id=latest.id or 0,
+                            user_id=latest.user_id or user_id,
+                            session_type=latest.session_type,
+                            status=latest.status,
+                            review_flag=latest.review_flag,
+                            sleep_date=latest.sleep_date,
+                            onset=latest.onset,
+                            wake=latest.wake,
+                            time_in_bed_min=latest.time_in_bed_min,
+                            total_asleep_min=latest.total_asleep_min,
+                            awake_min=latest.awake_min,
+                            core_min=latest.core_min,
+                            deep_min=latest.deep_min,
+                            rem_min=latest.rem_min,
+                            wakeups=latest.wakeups,
+                            # Round to 4 dp so the JSON shows 0.9706
+                            # instead of 0.97060000000000002 (float
+                            # quantization noise from time_asleep /
+                            # time_in_bed).
+                            efficiency=round(latest.efficiency, 4),
+                            captured_at=latest.captured_at,
+                        )
+                    ]
+                    if latest is not None
+                    else []
+                )
             )
     except sessions_svc.SleepPayloadError as e:
         raise AppError(422, "invalid_payload", str(e)) from e

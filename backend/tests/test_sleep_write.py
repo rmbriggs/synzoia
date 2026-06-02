@@ -255,9 +255,13 @@ def test_ingest_night_payload_matches_oracle(monkeypatch):
 # ----- Sessionization: night + nap ----------------------------------------
 
 
-def test_ingest_night_and_nap_become_two_sessions(monkeypatch):
-    """One night session (00:00-08:00) + an afternoon nap (14:00-14:45)
-    in the same payload should land as TWO rows: one 'night', one 'nap'."""
+def test_ingest_night_and_nap_stores_both_returns_latest(monkeypatch):
+    """One night (00:00-08:00) + an afternoon nap (14:00-14:45) in the
+    same payload should land as TWO rows in the DB. The response only
+    returns the LATEST session by wake time (the nap here) — Apple
+    Health's calendar-day filter routinely pulls multi-session
+    payloads, and the client only wants the most recent for its
+    just-woke-up UI flow."""
     engine = _engine_with_users()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
@@ -290,9 +294,10 @@ def test_ingest_night_and_nap_become_two_sessions(monkeypatch):
 
     assert response.status_code == 201, response.json()
     sessions = response.json()["sessions"]
-    assert len(sessions) == 2
-    types_seen = {s["session_type"] for s in sessions}
-    assert types_seen == {"night", "nap"}
+    # Response: only the latest (nap, wake 2:45 PM > night wake 8:00 AM)
+    assert len(sessions) == 1
+    assert sessions[0]["session_type"] == "nap"
+    # DB: both rows persisted, queryable via GET endpoints
     assert _count_sleep(engine, user_id=1) == 2
 
 
