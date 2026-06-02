@@ -89,8 +89,14 @@ describe('Feed page (post stream)', () => {
     renderFeed();
 
     await waitFor(() => {
-      expect(screen.getByText(/Yesterday/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Congrats to the top 3 · May 23, 2026/),
+      ).toBeInTheDocument();
     });
+    expect(screen.getByText('🥇')).toBeInTheDocument();
+    expect(screen.getByText('🥈')).toBeInTheDocument();
+    expect(screen.getByText('🥉')).toBeInTheDocument();
+    expect(screen.queryByText('#1')).not.toBeInTheDocument();
     expect(screen.getByText('12,000')).toBeInTheDocument();
     expect(screen.getByText('9,500')).toBeInTheDocument();
     expect(screen.getByText('4,200')).toBeInTheDocument();
@@ -161,6 +167,84 @@ describe('Feed page (post stream)', () => {
     await waitFor(() => {
       expect(screen.getByText('hit 10,000 steps')).toBeInTheDocument();
     });
-    expect(screen.getByText(/Yesterday/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Congrats to the top 3 · May 23, 2026/),
+    ).toBeInTheDocument();
+  });
+
+  it('marks a sleep post with an accessible type label', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      jsonResponse({
+        posts: [
+          {
+            id: 3,
+            user_id: 1,
+            username: 'micah',
+            type: 'sleep',
+            timestamp: new Date().toISOString(),
+            details: { night_of: '2026-05-28', duration_min: 452 },
+            body: 'slept 7h 32m',
+          },
+        ],
+      }),
+    );
+
+    renderFeed();
+
+    await waitFor(() => {
+      expect(screen.getByText('slept 7h 32m')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('img', { name: 'Sleep' })).toBeInTheDocument();
+  });
+
+  it('gives a body-less steps post a readable fallback', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      jsonResponse({
+        posts: [
+          {
+            id: 4,
+            user_id: 1,
+            username: 'micah',
+            type: 'steps',
+            timestamp: new Date().toISOString(),
+            details: null,
+            body: null,
+          },
+        ],
+      }),
+    );
+
+    renderFeed();
+
+    await waitFor(() => {
+      expect(screen.getByText('logged steps')).toBeInTheDocument();
+    });
+  });
+
+  it('groups posts under day headers', async () => {
+    const todayIso = new Date().toISOString();
+    const olderIso = new Date(Date.now() - 2 * 86_400_000).toISOString();
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      jsonResponse({
+        posts: [
+          {
+            id: 1, user_id: 1, username: 'micah', type: 'steps',
+            timestamp: todayIso, details: null, body: null,
+          },
+          {
+            id: 2, user_id: 1, username: 'micah', type: 'steps',
+            timestamp: olderIso, details: null, body: null,
+          },
+        ],
+      }),
+    );
+
+    const { container } = renderFeed();
+
+    await waitFor(() => {
+      expect(screen.getByText('Today')).toBeInTheDocument();
+    });
+    // One <h2> per day group (PageHeader uses <h1>, RecapPost uses <h3>).
+    expect(container.querySelectorAll('h2')).toHaveLength(2);
   });
 });

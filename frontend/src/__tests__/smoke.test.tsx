@@ -35,10 +35,11 @@ describe('App smoke', () => {
     });
   }
 
-  it('renders the landing page at "/" when logged out', () => {
+  it('renders the Feed at "/" (the default view)', () => {
     const { container } = renderAt('/');
-    // The "More than a step counter." headline is unique to the
-    // landing page.
-    expect(container.textContent).toContain('More than a step counter.');
+    // "/" now redirects to /feed. The Feed's description is unique to it;
+    // the Landing headline must no longer appear at the default route.
+    expect(container.textContent).toContain('Recent milestones and recaps.');
+    expect(container.textContent).not.toContain('More than a step counter.');
   });
 });

@@ -9,6 +9,7 @@ import MilestonePost from '@/components/feed/MilestonePost';
 import RecapPost from '@/components/feed/RecapPost';
 import SleepPost from '@/components/feed/SleepPost';
 import { getFeed } from '@/api/posts';
+import { groupPostsByDay } from '@/lib/feedGroups';
 
 export default function Feed() {
   const query = useQuery({
@@ -37,19 +38,29 @@ export default function Feed() {
           <EmptyState message="No posts yet. Start walking." />
         </Card>
       ) : (
-        <div className="space-y-4">
-          {query.data.posts.map((post) => {
-            if (post.type === 'leaderboard_recap') {
-              return <RecapPost key={post.id} post={post} />;
-            }
-            if (post.type === 'steps_milestone') {
-              return <MilestonePost key={post.id} post={post} />;
-            }
-            if (post.type === 'sleep') {
-              return <SleepPost key={post.id} post={post} />;
-            }
-            return <GenericPost key={post.id} post={post} />;
-          })}
+        <div className="space-y-8">
+          {groupPostsByDay(query.data.posts).map((group) => (
+            <section key={group.key} className="space-y-4">
+              <div className="flex items-center gap-3">
+                <h2 className="label-mono text-muted-foreground">
+                  {group.label}
+                </h2>
+                <div className="h-px flex-1 bg-border/60" />
+              </div>
+              {group.posts.map((post) => {
+                if (post.type === 'leaderboard_recap') {
+                  return <RecapPost key={post.id} post={post} />;
+                }
+                if (post.type === 'steps_milestone') {
+                  return <MilestonePost key={post.id} post={post} />;
+                }
+                if (post.type === 'sleep') {
+                  return <SleepPost key={post.id} post={post} />;
+                }
+                return <GenericPost key={post.id} post={post} />;
+              })}
+            </section>
+          ))}
         </div>
       )}
     </div>

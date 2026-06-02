@@ -111,6 +111,36 @@ function parseAsUtc(iso: string): Date {
 }
 
 /**
+ * The CT calendar day (YYYY-MM-DD) a timestamp falls on. Used to group
+ * feed posts by day. Robust against naive-UTC strings (see parseAsUtc).
+ */
+export function ctDayKey(iso: string): string {
+  return CT_YMD.format(parseAsUtc(iso));
+}
+
+/**
+ * A day-group header label for the feed:
+ *   today CT     -> "Today"
+ *   yesterday CT -> "Yesterday"
+ *   older        -> "Wednesday, May 27"
+ */
+export function formatDayHeader(iso: string, now: Date = new Date()): string {
+  const thenKey = ctDayKey(iso);
+  const nowKey = CT_YMD.format(now);
+  const yesterdayKey = CT_YMD.format(new Date(now.getTime() - 86_400_000));
+
+  if (thenKey === nowKey) return 'Today';
+  if (thenKey === yesterdayKey) return 'Yesterday';
+
+  return parseAsUtc(iso).toLocaleDateString('en-US', {
+    timeZone: APP_TIMEZONE,
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+/**
  * Render a post's timestamp as its actual wall-clock time in CT.
  *
  *   today:     "6:36 AM"

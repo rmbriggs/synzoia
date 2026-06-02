@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { currentDate, currentMonthYYYYMM, formatDuration } from '@/lib/dates';
+import {
+  ctDayKey,
+  currentDate,
+  currentMonthYYYYMM,
+  formatDayHeader,
+  formatDuration,
+} from '@/lib/dates';
 
 describe('currentMonthYYYYMM', () => {
   it('returns the YYYY-MM prefix of the CT current date', () => {
@@ -26,5 +32,27 @@ describe('formatDuration', () => {
 
   it('handles sub-hour durations', () => {
     expect(formatDuration(45)).toBe('0h 45m');
+  });
+});
+
+describe('ctDayKey', () => {
+  it('returns the CT calendar day (YYYY-MM-DD) of a UTC timestamp', () => {
+    expect(ctDayKey('2026-05-27T15:00:00Z')).toBe('2026-05-27');
+  });
+});
+
+describe('formatDayHeader', () => {
+  const now = new Date('2026-05-29T18:00:00Z'); // ~1pm CT, 2026-05-29
+
+  it('labels the current CT day "Today"', () => {
+    expect(formatDayHeader('2026-05-29T18:00:00Z', now)).toBe('Today');
+  });
+
+  it('labels the prior CT day "Yesterday"', () => {
+    expect(formatDayHeader('2026-05-28T18:00:00Z', now)).toBe('Yesterday');
+  });
+
+  it('labels older days as "Weekday, Month Day"', () => {
+    expect(formatDayHeader('2026-05-27T15:00:00Z', now)).toBe('Wednesday, May 27');
   });
 });
