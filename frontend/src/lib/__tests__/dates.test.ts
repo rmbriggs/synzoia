@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { formatDuration } from '@/lib/dates';
+import { currentDate, currentMonthYYYYMM, formatDuration } from '@/lib/dates';
+
+describe('currentMonthYYYYMM', () => {
+  it('returns the YYYY-MM prefix of the CT current date', () => {
+    expect(currentMonthYYYYMM()).toBe(currentDate().slice(0, 7));
+  });
+
+  it('matches the YYYY-MM shape', () => {
+    expect(currentMonthYYYYMM()).toMatch(/^\d{4}-\d{2}$/);
+  });
+});
 
 describe('formatDuration', () => {
   it('formats minutes as "Xh Ym"', () => {

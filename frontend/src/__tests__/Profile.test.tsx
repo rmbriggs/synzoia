@@ -301,6 +301,28 @@ describe('Profile page', () => {
       ).toBeInTheDocument();
     });
 
+    it('prefetches the feed when the Summary page loads (before the Feed tab is opened)', async () => {
+      const fetchMock = routedMock({
+        ...summaryMocks(),
+        '/posts/users/': () => ok({ posts: [] }),
+      });
+      globalThis.fetch = fetchMock;
+
+      // Land on the Summary tab — NOT ?tab=feed.
+      renderAt('/u/alice');
+
+      // The prefetch effect fetches the feed endpoint even though the
+      // Feed tab was never opened. (On the Summary tab nothing else hits
+      // /posts/users/* — the stat queries hit /steps/* and /sleep/*.)
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.some(([url]) =>
+            String(url).includes('/posts/users/alice'),
+          ),
+        ).toBe(true),
+      );
+    });
+
   });
 
   describe('Error and fallback states', () => {

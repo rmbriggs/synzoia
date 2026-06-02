@@ -42,6 +42,15 @@ export function currentDate(): string {
 export const localDate = currentDate;
 
 /**
+ * Current month as YYYY-MM in the app timezone. Derived from
+ * currentDate() so it shares the same CT anchor — used as the `?month=`
+ * key for monthly endpoints.
+ */
+export function currentMonthYYYYMM(): string {
+  return currentDate().slice(0, 7);
+}
+
+/**
  * Format a bare YYYY-MM-DD date string for display ("Saturday, May 23").
  * No timezone math — bare dates are calendar concepts, not points in
  * time. Reads from the string directly to avoid the "new Date(iso)"

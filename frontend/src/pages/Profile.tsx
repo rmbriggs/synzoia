@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import Button from '@/components/ui/AppButton';
 import Card from '@/components/ui/AppCard';
@@ -12,30 +13,34 @@ import MilestonePost from '@/components/feed/MilestonePost';
 import RecapPost from '@/components/feed/RecapPost';
 import SleepPost from '@/components/feed/SleepPost';
 import { ApiError } from '@/api/client';
-import { getUserFeed, type FeedPost } from '@/api/posts';
+import { type FeedPost } from '@/api/posts';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import {
-  getUserDaily,
-  getUserMonthly,
-  getUserSummary,
-  getUserWeekly,
-  type UserDailyResponse,
-  type UserMonthlyResponse,
-  type UserSummaryResponse,
-  type UserWeeklyResponse,
+import type {
+  UserDailyResponse,
+  UserMonthlyResponse,
+  UserSummaryResponse,
+  UserWeeklyResponse,
 } from '@/api/steps';
-import {
-  getUserDaily as getSleepDaily,
-  getUserWeekly as getSleepWeekly,
-  getUserMonthly as getSleepMonthly,
-  getUserSummary as getSleepSummary,
-  type UserDailyResponse as SleepDailyResponse,
-  type UserWeeklyResponse as SleepWeeklyResponse,
-  type UserMonthlyResponse as SleepMonthlyResponse,
-  type UserSummaryResponse as SleepSummaryResponse,
+import type {
+  UserDailyResponse as SleepDailyResponse,
+  UserWeeklyResponse as SleepWeeklyResponse,
+  UserMonthlyResponse as SleepMonthlyResponse,
+  UserSummaryResponse as SleepSummaryResponse,
 } from '@/api/sleep';
 import {
+  stepsSummaryQuery,
+  stepsDailyQuery,
+  stepsWeeklyQuery,
+  stepsMonthlyQuery,
+  sleepSummaryQuery,
+  sleepDailyQuery,
+  sleepWeeklyQuery,
+  sleepMonthlyQuery,
+  userFeedQuery,
+} from '@/api/userSummaryQueries';
+import {
   currentDate,
+  currentMonthYYYYMM,
   formatDateMedium,
   formatDuration,
   formatTimestampDate,
@@ -324,77 +329,19 @@ const TABS = [
   { key: 'feed', label: 'Feed' },
 ] as const;
 
-function currentMonthYYYYMM(): string {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  return `${yyyy}-${mm}`;
-}
-
 function SummaryPanel({ username }: { username: string }) {
   const today = currentDate();
   const month = currentMonthYYYYMM();
 
-  const summary = useQuery({
-    queryKey: ['steps', 'users', username, 'summary'],
-    queryFn: () => getUserSummary(username),
-    enabled: !!username,
-    staleTime: 30_000,
-    retry: false,
-  });
-  const daily = useQuery({
-    queryKey: ['steps', 'users', username, 'daily', today],
-    queryFn: () => getUserDaily(username, today),
-    enabled: !!username,
-    staleTime: 30_000,
-    retry: false,
-  });
-  const weekly = useQuery({
-    queryKey: ['steps', 'users', username, 'weekly'],
-    queryFn: () => getUserWeekly(username),
-    enabled: !!username,
-    staleTime: 30_000,
-    retry: false,
-  });
-  const monthly = useQuery({
-    queryKey: ['steps', 'users', username, 'monthly', month],
-    queryFn: () => getUserMonthly(username, month),
-    enabled: !!username,
-    staleTime: 30_000,
-    retry: false,
-  });
+  const summary = useQuery({ ...stepsSummaryQuery(username), enabled: !!username });
+  const daily = useQuery({ ...stepsDailyQuery(username, today), enabled: !!username });
+  const weekly = useQuery({ ...stepsWeeklyQuery(username), enabled: !!username });
+  const monthly = useQuery({ ...stepsMonthlyQuery(username, month), enabled: !!username });
 
-  const sleepSummary = useQuery({
-    queryKey: ['sleep', 'users', username, 'summary'],
-    queryFn: () => getSleepSummary(username),
-    enabled: !!username,
-    staleTime: 30_000,
-    retry: false,
-  });
-
-  const sleepDaily = useQuery({
-    queryKey: ['sleep', 'users', username, 'daily', today],
-    queryFn: () => getSleepDaily(username, today),
-    enabled: !!username,
-    staleTime: 30_000,
-    retry: false,
-  });
-
-  const sleepWeekly = useQuery({
-    queryKey: ['sleep', 'users', username, 'weekly'],
-    queryFn: () => getSleepWeekly(username),
-    enabled: !!username,
-    staleTime: 30_000,
-    retry: false,
-  });
-
-  const sleepMonthly = useQuery({
-    queryKey: ['sleep', 'users', username, 'monthly', month],
-    queryFn: () => getSleepMonthly(username, month),
-    enabled: !!username,
-    staleTime: 30_000,
-    retry: false,
-  });
+  const sleepSummary = useQuery({ ...sleepSummaryQuery(username), enabled: !!username });
+  const sleepDaily = useQuery({ ...sleepDailyQuery(username, today), enabled: !!username });
+  const sleepWeekly = useQuery({ ...sleepWeeklyQuery(username), enabled: !!username });
+  const sleepMonthly = useQuery({ ...sleepMonthlyQuery(username, month), enabled: !!username });
 
   return (
     <div className="space-y-8">
@@ -484,12 +431,7 @@ function SummaryPanel({ username }: { username: string }) {
 }
 
 function FeedPanel({ username }: { username: string }) {
-  const query = useQuery({
-    queryKey: ['posts', 'users', username, 'feed', 50],
-    queryFn: () => getUserFeed(username, 50),
-    enabled: !!username,
-    staleTime: 30_000,
-  });
+  const query = useQuery({ ...userFeedQuery(username), enabled: !!username });
 
   if (query.isPending) return <FeedSkeleton />;
   if (query.isError) {
@@ -529,15 +471,17 @@ export default function Profile() {
   // visit hits it regardless of which tab is active. React Query
   // dedupes by queryKey, so the inner SummaryPanel's summary query
   // shares this network request.
-  const summary = useQuery({
-    queryKey: ['steps', 'users', username, 'summary'],
-    queryFn: () => getUserSummary(username),
-    enabled: !!username,
-    staleTime: 30_000,
-    retry: false,
-  });
+  const summary = useQuery({ ...stepsSummaryQuery(username), enabled: !!username });
 
   const { currentUser, setCurrentUser } = useCurrentUser();
+
+  const queryClient = useQueryClient();
+  // Warm the feed in the background as soon as the profile loads, so the
+  // Feed tab renders instantly when opened. prefetchQuery respects
+  // staleTime and swallows errors, so this never affects the Summary view.
+  useEffect(() => {
+    if (username) queryClient.prefetchQuery(userFeedQuery(username));
+  }, [queryClient, username]);
 
   // Defensive guard for the unlikely case where useParams returns
   // empty — Profile is only routed under /u/:username, so this is
