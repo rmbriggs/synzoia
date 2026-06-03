@@ -188,7 +188,7 @@ describe('Profile page', () => {
     // Header must paint synchronously from useParams, not wait on the
     // summary query.
     expect(
-      screen.getByRole('heading', { level: 1, name: 'pending' }),
+      screen.getByRole('heading', { level: 1, name: '@pending' }),
     ).toBeInTheDocument();
   });
 
@@ -200,7 +200,7 @@ describe('Profile page', () => {
 
       // Header
       expect(
-        await screen.findByRole('heading', { level: 1, name: 'alice' }),
+        await screen.findByRole('heading', { level: 1, name: '@alice' }),
       ).toBeInTheDocument();
       // StatStrip — 30-day score
       expect(await screen.findByText('50,000')).toBeInTheDocument();
@@ -404,7 +404,7 @@ describe('Profile page', () => {
       ).toBeInTheDocument();
       expect(screen.getByText('No posts yet today.')).toBeInTheDocument();
       expect(
-        screen.getByRole('heading', { level: 1, name: 'lonely' }),
+        screen.getByRole('heading', { level: 1, name: '@lonely' }),
       ).toBeInTheDocument();
       // Standalone "—" elements: Rank (StatStrip), Best day
       // (StatStrip), Today's rank (TodayCard). The week/month dashes

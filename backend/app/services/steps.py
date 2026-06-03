@@ -110,8 +110,8 @@ class UserNotFound(Exception):
 def _lookup_user(conn: Connection, username: str) -> tuple[int, datetime]:
     row = (
         conn.execute(
-            text("SELECT id, join_date FROM profiles WHERE username = :u"),
-            {"u": username},
+            text("SELECT id, join_date FROM profiles WHERE lower(username) = :u"),
+            {"u": username.lower()},
         )
         .mappings()
         .first()

@@ -65,9 +65,11 @@ def list_profiles() -> ProfileListResponse:
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=ProfileResponse)
 def create_profile(req: CreateProfileRequest) -> ProfileResponse:
-    """Write: sign up, get back a token. Username uniqueness is enforced
-    at the DB level; collisions surface as 409 'username_taken'."""
-    if not _USERNAME_RE.match(req.username):
+    """Write: sign up, get back a token. Usernames are normalized to
+    lowercase so 'Sam' and 'SAM' can't both register. Username uniqueness
+    is enforced at the DB level; collisions surface as 409 'username_taken'."""
+    username = req.username.lower()
+    if not _USERNAME_RE.match(username):
         raise AppError(
             422,
             "invalid_username",
@@ -84,7 +86,7 @@ def create_profile(req: CreateProfileRequest) -> ProfileResponse:
                         "VALUES (:username, :token) "
                         "RETURNING username, token, join_date"
                     ),
-                    {"username": req.username, "token": token},
+                    {"username": username, "token": token},
                 )
                 .mappings()
                 .one()

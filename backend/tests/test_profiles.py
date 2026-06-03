@@ -117,3 +117,28 @@ def test_two_different_usernames_get_different_tokens(monkeypatch):
     b = client.post("/api/profiles", json={"username": "bob"}).json()
 
     assert a["token"] != b["token"]
+
+
+def test_create_profile_lowercases_username(monkeypatch):
+    engine = _profiles_engine()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+    client = TestClient(main.app)
+
+    response = client.post("/api/profiles", json={"username": "Sam"})
+
+    assert response.status_code == 201
+    assert response.json()["username"] == "sam"
+
+
+def test_create_profile_case_variant_is_duplicate(monkeypatch):
+    engine = _profiles_engine()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+    client = TestClient(main.app)
+
+    first = client.post("/api/profiles", json={"username": "sam"})
+    assert first.status_code == 201
+
+    # 'SAM' normalizes to 'sam', which already exists → 409.
+    second = client.post("/api/profiles", json={"username": "SAM"})
+    assert second.status_code == 409
+    assert second.json()["error"]["code"] == "username_taken"

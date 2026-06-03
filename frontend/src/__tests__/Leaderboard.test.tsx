@@ -74,9 +74,9 @@ describe('Leaderboard page', () => {
     renderAt('/leaderboard');
 
     await waitFor(() => {
-      expect(screen.getByText('alice')).toBeInTheDocument();
+      expect(screen.getByText('@alice')).toBeInTheDocument();
     });
-    expect(screen.getByText('bob')).toBeInTheDocument();
+    expect(screen.getByText('@bob')).toBeInTheDocument();
     expect(screen.getByText('30,000')).toBeInTheDocument();
     expect(screen.getByText('20,000')).toBeInTheDocument();
     expect(screen.getByText('50,000 total steps')).toBeInTheDocument();
@@ -97,9 +97,9 @@ describe('Leaderboard page', () => {
     renderAt('/leaderboard?tab=today');
 
     await waitFor(() => {
-      expect(screen.getByText('bob')).toBeInTheDocument();
+      expect(screen.getByText('@bob')).toBeInTheDocument();
     });
-    expect(screen.getByText('alice')).toBeInTheDocument();
+    expect(screen.getByText('@alice')).toBeInTheDocument();
     expect(screen.getByText('12,000')).toBeInTheDocument();
     expect(screen.getByText('21,000 total steps')).toBeInTheDocument();
   });
@@ -167,7 +167,7 @@ describe('Leaderboard page', () => {
     renderAt('/leaderboard');
 
     await waitFor(() => {
-      const link = screen.getByRole('link', { name: 'alice' });
+      const link = screen.getByRole('link', { name: '@alice' });
       expect(link).toHaveAttribute('href', '/u/alice');
     });
   });
