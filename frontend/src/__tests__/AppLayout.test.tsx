@@ -39,3 +39,14 @@ describe('AppLayout profile icon', () => {
     }
   });
 });
+
+describe('AppLayout Join entry', () => {
+  it('shows Join link(s) pointing at /join', () => {
+    renderLayout();
+    const links = screen.getAllByRole('link', { name: /join/i });
+    expect(links.length).toBeGreaterThanOrEqual(1);
+    for (const link of links) {
+      expect(link).toHaveAttribute('href', '/join');
+    }
+  });
+});
