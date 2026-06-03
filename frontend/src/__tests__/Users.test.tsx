@@ -43,7 +43,8 @@ describe('Users page', () => {
     renderUsers();
     await waitFor(() => expect(screen.getByText('@zoe')).toBeInTheDocument());
     expect(screen.getByText('@alice')).toBeInTheDocument();
-    expect(screen.getByText('9,000')).toBeInTheDocument();
+    // Total-steps count was removed from this page — it shouldn't render.
+    expect(screen.queryByText('9,000')).not.toBeInTheDocument();
 
     // Oldest join_date (zoe, 05-19) renders above the newer one (alice, 05-20).
     const names = screen.getAllByRole('link').map((l) => l.textContent);
