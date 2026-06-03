@@ -14,7 +14,7 @@ import RecapPost from '@/components/feed/RecapPost';
 import SleepPost from '@/components/feed/SleepPost';
 import { ApiError } from '@/api/client';
 import { type FeedPost } from '@/api/posts';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useAuthSession } from '@/hooks/useAuthSession';
 import { averagePerLoggedDay } from '@/lib/stats';
 import type {
   UserDailyResponse,
@@ -473,7 +473,13 @@ export default function Profile() {
   // shares this network request.
   const summary = useQuery({ ...stepsSummaryQuery(username), enabled: !!username });
 
-  const { currentUser, setCurrentUser } = useCurrentUser();
+  // Resolves to the signed-in user's username (from Supabase Auth's
+  // user_metadata) or null when signed out. Replaces the old
+  // useCurrentUser localStorage hack — without that change, anyone
+  // could click "Make this me" on any profile and impersonate the
+  // owner. Post-C2 the only way `viewerUsername === username` is if
+  // they actually signed in as that account.
+  const { username: viewerUsername } = useAuthSession();
 
   const queryClient = useQueryClient();
   // Warm the feed in the background as soon as the profile loads, so the
@@ -505,17 +511,20 @@ export default function Profile() {
           username={summary.data?.username ?? username}
           joinDate={summary.data?.join_date}
         />
-        <div className="shrink-0">
-          {currentUser === username ? (
+        {/*
+          "✓ This is you" badge shows ONLY when the signed-in user
+          owns this profile. The old "Make this me" button was a
+          localStorage impersonation hack — removed in C2 because
+          real auth means you can only "be" the user you signed in
+          as. Viewing someone else's profile is now read-only.
+        */}
+        {viewerUsername === username && (
+          <div className="shrink-0">
             <Button variant="secondary" disabled>
               ✓ This is you
             </Button>
-          ) : (
-            <Button variant="primary" onClick={() => setCurrentUser(username)}>
-              Make this me
-            </Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
       <TabStrip tabs={[...TABS]} defaultKey="summary" />
       {active === 'feed' ? (

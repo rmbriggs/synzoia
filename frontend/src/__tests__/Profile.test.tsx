@@ -2,7 +2,38 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
 import Profile from '@/pages/Profile';
+import { supabase } from '@/lib/supabase';
+
+/**
+ * Helper for the "✓ This is you" assertion. Sets up the global
+ * Supabase mock so getSession() returns a session whose
+ * user_metadata.username matches `username`. Pre-C2 this was a
+ * localStorage flag; post-C2 it has to come from a real auth
+ * session (otherwise the impersonation hole opens back up).
+ */
+function signInAs(username: string): void {
+  vi.mocked(supabase.auth.getSession).mockResolvedValue({
+    data: {
+      session: {
+        access_token: 'fake-jwt',
+        refresh_token: 'fake-refresh',
+        expires_at: 9_999_999_999,
+        expires_in: 3600,
+        token_type: 'bearer',
+        user: {
+          id: 'fake-uuid',
+          email: `${username}@example.com`,
+          user_metadata: { username },
+          app_metadata: {},
+          aud: 'authenticated',
+          created_at: '2026-05-01T00:00:00Z',
+        },
+      },
+    },
+  } as Awaited<ReturnType<typeof supabase.auth.getSession>>);
+}
 
 function renderAt(url: string) {
   const client = new QueryClient({
@@ -25,6 +56,14 @@ afterEach(() => {
   window.localStorage.clear();
   globalThis.fetch = originalFetch;
   vi.clearAllMocks();
+  // `vi.clearAllMocks` resets call history but NOT mock
+  // implementations, so any `signInAs(...)` from the previous test
+  // would leak its `mockResolvedValue` into the next one. Reset
+  // getSession back to the global-stub default (signed-out) so
+  // each test starts from a known anonymous state.
+  vi.mocked(supabase.auth.getSession).mockResolvedValue({
+    data: { session: null },
+  } as Awaited<ReturnType<typeof supabase.auth.getSession>>);
 });
 
 function routedMock(handlers: Record<string, () => Response>) {
@@ -417,39 +456,41 @@ describe('Profile page', () => {
     });
   });
 
-  describe('"Make this me" button', () => {
-    it('shows "Make this me" when no current user is set', async () => {
+  describe('"✓ This is you" badge', () => {
+    // Pre-C2 there was a "Make this me" button anyone could click to
+    // impersonate a profile via localStorage. C2 removed that — the
+    // only way the badge shows now is if the viewer signed in via
+    // Supabase Auth as that exact user. Two tests cover the binary:
+    // signed-in-as-them → badge visible; not signed in (or signed in
+    // as someone else) → no badge at all.
+
+    it('shows the badge when the signed-in user owns this profile', async () => {
+      signInAs('alice');
       globalThis.fetch = routedMock(summaryMocks());
 
       renderAt('/u/alice');
 
-      expect(
-        await screen.findByRole('button', { name: /make this me/i }),
-      ).toBeInTheDocument();
+      const badge = await screen.findByRole('button', {
+        name: /this is you/i,
+      });
+      expect(badge).toBeDisabled();
     });
 
-    it('clicking it persists the username and flips to "This is you"', async () => {
+    it('hides the badge when the viewer is not signed in', async () => {
+      // Default mock: getSession() resolves to { session: null }.
+      // The viewer is anonymous; they should NOT see a "you" badge
+      // on someone else's profile.
       globalThis.fetch = routedMock(summaryMocks());
 
       renderAt('/u/alice');
 
-      const btn = await screen.findByRole('button', { name: /make this me/i });
-      fireEvent.click(btn);
-
-      expect(window.localStorage.getItem('synzoia.currentUser')).toBe('alice');
+      // Wait for the page header to render so we know auth has
+      // resolved (otherwise we'd race the assertion against the
+      // initial loading state).
+      await screen.findByRole('heading', { name: /@?alice/i });
       expect(
-        await screen.findByRole('button', { name: /this is you/i }),
-      ).toBeDisabled();
-    });
-
-    it('shows a disabled "This is you" when viewing your saved profile', async () => {
-      window.localStorage.setItem('synzoia.currentUser', 'alice');
-      globalThis.fetch = routedMock(summaryMocks());
-
-      renderAt('/u/alice');
-
-      const btn = await screen.findByRole('button', { name: /this is you/i });
-      expect(btn).toBeDisabled();
+        screen.queryByRole('button', { name: /this is you/i }),
+      ).not.toBeInTheDocument();
     });
   });
 });

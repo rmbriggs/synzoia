@@ -2,7 +2,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom';
 import { CircleUser, Database, Rss, Trophy, UserPlus, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import ThemeToggle from '@/components/layout/ThemeToggle';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useAuthSession } from '@/hooks/useAuthSession';
 
 const topNavClass = ({ isActive }: { isActive: boolean }) =>
   `label-mono transition-colors ${
@@ -40,9 +40,13 @@ function BottomNavItem({
 }
 
 export function AppLayout() {
-  const { currentUser } = useCurrentUser();
-  const profileTarget = currentUser
-    ? `/u/${encodeURIComponent(currentUser)}`
+  // The "Your profile" link points at the signed-in user's profile
+  // page when there's a session. When signed out (or pre-session
+  // during the initial getSession() round-trip), it falls back to
+  // /users — the list page everyone can read.
+  const { username } = useAuthSession();
+  const profileTarget = username
+    ? `/u/${encodeURIComponent(username)}`
     : '/users';
 
   return (

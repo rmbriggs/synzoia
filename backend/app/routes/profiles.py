@@ -1,21 +1,41 @@
 """HTTP layer for /api/profiles.
 
-Read endpoint lists every user; write endpoint creates a new profile +
-returns its server-issued token. The POST handler was previously
-defined inline in main.py — promoted here so both verbs live in one
-router and the schema stays cohesive."""
+Read endpoint lists every user; write endpoint links the caller's
+Supabase Auth identity to a new profile row + returns the
+machine-token the iOS Shortcut needs.
+
+Auth flow for signup (post-C2):
+
+  1. Frontend calls `supabase.auth.signUp(email, password)` —
+     Supabase creates a user in its `auth.users` table and returns
+     a JWT session.
+  2. Frontend immediately calls POST /api/profiles with that JWT
+     in the Authorization header and the chosen username in the
+     body.
+  3. This endpoint verifies the JWT (via require_supabase_uid),
+     extracts the Supabase user UUID, and inserts a profile row
+     linking the UUID to a fresh username + machine token.
+  4. The token in the response is for Angela's iOS Shortcut — the
+     Shortcut can't run an OAuth flow, so it keeps using the
+     legacy opaque-token auth path.
+
+If the same Supabase user calls this twice (e.g., they reload mid-
+signup), the second call hits the unique index on supabase_user_id
+and we return 409 — the row already exists, no need to re-create.
+"""
 
 import re
 import secrets
 import string
 from datetime import datetime
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from backend.app import db
+from backend.app.auth import require_supabase_uid
 from backend.app.errors import AppError
 from backend.app.schemas.profiles import ProfileListResponse
 from backend.app.services import profiles as svc
@@ -64,9 +84,18 @@ def list_profiles() -> ProfileListResponse:
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=ProfileResponse)
-def create_profile(req: CreateProfileRequest) -> ProfileResponse:
-    """Write: sign up, get back a token. Username uniqueness is enforced
-    at the DB level; collisions surface as 409 'username_taken'."""
+def create_profile(
+    req: CreateProfileRequest,
+    supabase_uid: str = Depends(require_supabase_uid),
+) -> ProfileResponse:
+    """Write: link the caller's Supabase Auth identity to a new
+    profile row, return the username + machine-token + join date.
+
+    Requires a valid Supabase JWT — anonymous signup is not allowed.
+    The username uniqueness is enforced at the DB level; collisions
+    surface as 409 'username_taken'. If the same supabase_user_id
+    already has a profile, that also surfaces as 409 — re-signup
+    isn't a thing."""
     if not _USERNAME_RE.match(req.username):
         raise AppError(
             422,
@@ -80,19 +109,25 @@ def create_profile(req: CreateProfileRequest) -> ProfileResponse:
             row = (
                 conn.execute(
                     text(
-                        "INSERT INTO profiles (username, token) "
-                        "VALUES (:username, :token) "
+                        "INSERT INTO profiles (username, token, supabase_user_id) "
+                        "VALUES (:username, :token, :supabase_uid) "
                         "RETURNING username, token, join_date"
                     ),
-                    {"username": req.username, "token": token},
+                    {
+                        "username": req.username,
+                        "token": token,
+                        "supabase_uid": supabase_uid,
+                    },
                 )
                 .mappings()
                 .one()
             )
     except IntegrityError as e:
-        # Either username collided (expected) or token collided (1-in-2^128).
-        # Both surface as a unique-violation; treat as username-taken since
-        # token collisions are not user-actionable and shouldn't happen.
+        # Either username collided (expected if taken), the
+        # supabase_user_id is already linked (re-signup), or the
+        # token collided (1-in-2^128, ignore). All surface as
+        # 409 — we don't distinguish to avoid leaking "is this
+        # username taken vs is this Supabase user already linked."
         raise AppError(
             409,
             "username_taken",
