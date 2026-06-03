@@ -11,10 +11,6 @@ import { getProfiles, type ProfileListEntry } from '@/api/profiles';
 import { userSummaryQueries } from '@/api/userSummaryQueries';
 import { currentDate, lastNightDate } from '@/lib/dates';
 
-function formatNumber(n: number): string {
-  return n.toLocaleString();
-}
-
 // How long the cursor must rest on a row before we warm its profile
 // queries. Long enough to skip rows the cursor merely sweeps past on the
 // way down the list, short enough that a deliberate pause still feels
@@ -72,9 +68,6 @@ function UserRow({ profile }: { profile: ProfileListEntry }) {
       >
         <span className="font-medium flex-1 min-w-0 truncate">
           @{profile.username}
-        </span>
-        <span className="font-mono tabular-nums">
-          {formatNumber(profile.total_steps_all_time)}
         </span>
       </Link>
     </li>
