@@ -56,8 +56,12 @@ VITE_SUPABASE_URL=https://<project>.supabase.co
 VITE_SUPABASE_ANON_KEY=...
 VITE_API_BASE=http://localhost:8000
 
-# migrate + run
-(cd backend && alembic upgrade head)
+# migrate: paste each backend/migrations/*.sql file into the Supabase
+# SQL Editor in numeric order (0001 → 0011). The files are idempotent —
+# safe to re-run. We use raw SQL rather than Alembic so the migration
+# history is also a readable spec.
+
+# run
 (cd backend && uvicorn app.main:app --reload --port 8000) &
 (cd frontend && npm run dev)
 
