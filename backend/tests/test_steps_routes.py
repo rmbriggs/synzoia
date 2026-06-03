@@ -2,13 +2,31 @@
 
 The service layer is covered in test_steps_service.py; this file
 exercises the FastAPI wiring: query params, response shape, the 404
-contract for unknown users."""
+contract for unknown users.
+
+Auth: per-user reads (`/api/steps/users/{username}/*`) require a
+Bearer token. Tests pass alice's token via `_auth()`; a dedicated
+test confirms unauthenticated requests get 401. Global aggregations
+(`/api/steps/daily`, `/weekly`, `/summary`, `/ranking`) remain open
+so the public group leaderboard renders without a session.
+"""
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import StaticPool
 
 from backend.app import db, main
+
+
+# Matches the seeded `profiles.token` for alice below (15-zero suffix
+# is the SQL string-concat that builds the seed). The exact string is
+# arbitrary; tests just need it to round-trip through the
+# Authorization header to the profiles.token lookup in auth.py.
+ALICE_TOKEN = "ta" + "0" * 15
+
+
+def _auth() -> dict:
+    return {"Authorization": f"Bearer {ALICE_TOKEN}"}
 
 
 def _engine_with_data():
@@ -133,7 +151,8 @@ def test_user_daily_returns_rank_and_posts(monkeypatch):
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     response = _client_with(engine).get(
-        "/api/steps/users/alice/daily?date=2026-05-23"
+        "/api/steps/users/alice/daily?date=2026-05-23",
+        headers=_auth(),
     )
 
     assert response.status_code == 200
@@ -145,12 +164,27 @@ def test_user_daily_returns_rank_and_posts(monkeypatch):
     assert [p["total"] for p in body["posts"]] == [1000, 5000, 9000]
 
 
+def test_user_daily_requires_auth(monkeypatch):
+    """Per-user reads were unauthenticated pre-C7; a stranger could
+    walk usernames and pull anyone's step history. Confirm an
+    anonymous request now gets 401 instead of returning data."""
+    engine = _engine_with_data()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    response = _client_with(engine).get(
+        "/api/steps/users/alice/daily?date=2026-05-23"
+    )
+
+    assert response.status_code == 401
+
+
 def test_user_weekly_for_known_user(monkeypatch):
     engine = _engine_with_data()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     response = _client_with(engine).get(
-        "/api/steps/users/alice/weekly?as_of=2026-05-24"
+        "/api/steps/users/alice/weekly?as_of=2026-05-24",
+        headers=_auth(),
     )
 
     assert response.status_code == 200
@@ -163,7 +197,10 @@ def test_user_summary_for_known_user(monkeypatch):
     engine = _engine_with_data()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
-    response = _client_with(engine).get("/api/steps/users/alice/summary")
+    response = _client_with(engine).get(
+        "/api/steps/users/alice/summary",
+        headers=_auth(),
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -173,6 +210,9 @@ def test_user_summary_for_known_user(monkeypatch):
 
 
 def test_user_endpoints_404_on_unknown_username(monkeypatch):
+    """Auth runs BEFORE the username lookup, so this test sends a
+    valid Bearer token for alice and then asks for `nobody/*`. The
+    expected response is 404 (user not found), not 401."""
     engine = _engine_with_data()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
     client = _client_with(engine)
@@ -182,7 +222,7 @@ def test_user_endpoints_404_on_unknown_username(monkeypatch):
         "/api/steps/users/nobody/weekly",
         "/api/steps/users/nobody/summary",
     ):
-        response = client.get(path)
+        response = client.get(path, headers=_auth())
         assert response.status_code == 404, path
         body = response.json()
         assert body["error"]["code"] == "user_not_found"
@@ -237,9 +277,11 @@ def _engine_with_amy_data():
 def test_user_weekly_route_accepts_as_of_rolling_bounds(monkeypatch):
     engine = _engine_with_amy_data()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
+    amy_auth = {"Authorization": "Bearer tamy000000000000"}
 
     resp = TestClient(main.app).get(
-        "/api/steps/users/amy/weekly?as_of=2026-06-02"
+        "/api/steps/users/amy/weekly?as_of=2026-06-02",
+        headers=amy_auth,
     )
     assert resp.status_code == 200
     b = resp.json()
@@ -251,9 +293,11 @@ def test_user_weekly_route_accepts_as_of_rolling_bounds(monkeypatch):
 def test_user_monthly_route_accepts_as_of(monkeypatch):
     engine = _engine_with_amy_data()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
+    amy_auth = {"Authorization": "Bearer tamy000000000000"}
 
     resp = TestClient(main.app).get(
-        "/api/steps/users/amy/monthly?as_of=2026-06-02"
+        "/api/steps/users/amy/monthly?as_of=2026-06-02",
+        headers=amy_auth,
     )
     assert resp.status_code == 200
     b = resp.json()
@@ -275,7 +319,10 @@ def test_user_summary_route_has_rank_and_score(monkeypatch):
     engine = _engine_with_data()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
-    resp = TestClient(main.app).get("/api/steps/users/alice/summary")
+    resp = TestClient(main.app).get(
+        "/api/steps/users/alice/summary",
+        headers=_auth(),
+    )
 
     assert resp.status_code == 200
     body = resp.json()
