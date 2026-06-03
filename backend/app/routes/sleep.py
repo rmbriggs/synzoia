@@ -102,6 +102,7 @@ def user_daily(
     username: str,
     date_: Optional[date] = Query(default=None, alias="date"),
 ) -> UserDailyResponse:
+    username = username.lower()
     target = date_ or _today()
     try:
         with db.get_engine().connect() as conn:
@@ -118,6 +119,7 @@ def user_weekly(
     username: str,
     as_of: Optional[date] = Query(default=None),
 ) -> UserWeeklyResponse:
+    username = username.lower()
     anchor = as_of or _today()
     try:
         with db.get_engine().connect() as conn:
@@ -135,6 +137,7 @@ def user_monthly(
     as_of: Optional[date] = Query(default=None),
 ) -> UserMonthlyResponse:
     """One user's stats for the rolling last 30 days ending `as_of` (CT today by default)."""
+    username = username.lower()
     anchor = as_of or _today()
     try:
         with db.get_engine().connect() as conn:
@@ -156,6 +159,7 @@ def global_ranking(
     response_model=UserSummaryResponse,
 )
 def user_summary(username: str) -> UserSummaryResponse:
+    username = username.lower()
     try:
         with db.get_engine().connect() as conn:
             return svc.get_user_summary(conn, username, _today() - timedelta(days=1))

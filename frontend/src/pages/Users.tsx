@@ -71,7 +71,7 @@ function UserRow({ profile }: { profile: ProfileListEntry }) {
         className="flex items-center gap-4 py-3 hover:text-primary transition-colors"
       >
         <span className="font-medium flex-1 min-w-0 truncate">
-          {profile.username}
+          @{profile.username}
         </span>
         <span className="font-mono tabular-nums">
           {formatNumber(profile.total_steps_all_time)}
@@ -107,9 +107,13 @@ export default function Users() {
       ) : (
         <Card>
           <ul>
-            {query.data.profiles.map((p) => (
-              <UserRow key={p.username} profile={p} />
-            ))}
+            {[...query.data.profiles]
+              // Oldest member first. join_date is an ISO timestamp, so a
+              // plain string compare sorts chronologically.
+              .sort((a, b) => a.join_date.localeCompare(b.join_date))
+              .map((p) => (
+                <UserRow key={p.username} profile={p} />
+              ))}
           </ul>
         </Card>
       )}

@@ -140,7 +140,7 @@ function Header({
 }) {
   return (
     <div>
-      <h1 className="font-display text-4xl tracking-tight">{username}</h1>
+      <h1 className="font-display text-4xl tracking-tight">@{username}</h1>
       {joinDate && (
         <p className="text-muted-foreground text-sm mt-1">
           Joined {formatJoinDate(joinDate)}

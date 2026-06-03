@@ -172,6 +172,18 @@ def test_user_summary_for_known_user(monkeypatch):
     assert "rank" in body
 
 
+def test_user_lookup_is_case_insensitive(monkeypatch):
+    # Usernames are stored lowercase; a mixed-case path segment (an old
+    # link or a hand-typed URL) must still resolve, not 404.
+    engine = _engine_with_data()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    response = _client_with(engine).get("/api/steps/users/ALICE/summary")
+
+    assert response.status_code == 200
+    assert response.json()["username"] == "alice"
+
+
 def test_user_endpoints_404_on_unknown_username(monkeypatch):
     engine = _engine_with_data()
     monkeypatch.setattr(db, "get_engine", lambda: engine)

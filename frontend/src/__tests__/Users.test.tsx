@@ -31,18 +31,24 @@ describe('Users page', () => {
     vi.useRealTimers();
   });
 
-  it('renders profiles alphabetically', async () => {
+  it('lists profiles oldest-joined first, with an @ prefix', async () => {
     vi.spyOn(profilesApi, 'getProfiles').mockResolvedValue({
+      // Returned newest-first on purpose; the page re-sorts by join date.
       profiles: [
-        { username: 'alice', join_date: '2026-05-19T00:00:00Z', total_steps_all_time: 9000 },
-        { username: 'bob',   join_date: '2026-05-20T00:00:00Z', total_steps_all_time: 4000 },
+        { username: 'alice', join_date: '2026-05-20T00:00:00Z', total_steps_all_time: 9000 },
+        { username: 'zoe',   join_date: '2026-05-19T00:00:00Z', total_steps_all_time: 4000 },
       ],
     });
 
     renderUsers();
-    await waitFor(() => expect(screen.getByText('alice')).toBeInTheDocument());
-    expect(screen.getByText('bob')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('@zoe')).toBeInTheDocument());
+    expect(screen.getByText('@alice')).toBeInTheDocument();
     expect(screen.getByText('9,000')).toBeInTheDocument();
+
+    // Oldest join_date (zoe, 05-19) renders above the newer one (alice, 05-20).
+    const names = screen.getAllByRole('link').map((l) => l.textContent);
+    expect(names[0]).toContain('@zoe');
+    expect(names[1]).toContain('@alice');
   });
 
   it('each row links to /u/<username>', async () => {

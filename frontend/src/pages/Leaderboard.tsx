@@ -43,7 +43,7 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
         to={`/u/${encodeURIComponent(entry.username)}`}
         className="font-medium hover:text-primary transition-colors flex-1 min-w-0 truncate"
       >
-        {entry.username}
+        @{entry.username}
       </Link>
       <span className="font-mono tabular-nums">
         {formatNumber(entry.total)}
