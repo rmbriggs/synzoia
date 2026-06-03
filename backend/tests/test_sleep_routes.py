@@ -4,6 +4,12 @@ The service layer's correctness is covered separately; this file
 exercises the FastAPI wiring: query params, response shape, the 404
 contract for unknown users, and the leaderboard ranking the routes
 expose.
+
+Auth: per-user reads (`/api/sleep/users/{username}/*`) require a
+Bearer token. Tests pass alice's token via `_auth()`; a dedicated
+test confirms unauthenticated requests get 401. Global aggregations
+(`/api/sleep/daily`, `/weekly`, `/summary`, `/ranking`) remain open
+so the public group feed and leaderboard render without a session.
 """
 
 from fastapi.testclient import TestClient
@@ -11,6 +17,16 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.pool import StaticPool
 
 from backend.app import db, main
+
+
+# Matches the seeded profile token below. The exact string is
+# arbitrary — tests just need it to round-trip through the
+# Authorization header to the profiles.token lookup in auth.py.
+ALICE_TOKEN = "ALCE-AAAA-AAAA-AAAA"
+
+
+def _auth() -> dict:
+    return {"Authorization": f"Bearer {ALICE_TOKEN}"}
 
 
 def _engine_with_data():
@@ -161,7 +177,8 @@ def test_user_daily_returns_rank_and_post(monkeypatch):
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     response = TestClient(main.app).get(
-        "/api/sleep/users/alice/daily?date=2026-05-22"
+        "/api/sleep/users/alice/daily?date=2026-05-22",
+        headers=_auth(),
     )
 
     assert response.status_code == 200
@@ -175,12 +192,27 @@ def test_user_daily_returns_rank_and_post(monkeypatch):
     assert body["post"]["rem_minutes"] == 95
 
 
+def test_user_daily_requires_auth(monkeypatch):
+    """Per-user reads were unauthenticated pre-C7; a stranger could
+    walk usernames and pull anyone's sleep stages. Confirm an
+    anonymous request now gets 401 instead of returning data."""
+    engine = _engine_with_data()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    response = TestClient(main.app).get(
+        "/api/sleep/users/alice/daily?date=2026-05-22"
+    )
+
+    assert response.status_code == 401
+
+
 def test_user_daily_returns_zero_and_null_rank_when_no_post(monkeypatch):
     engine = _engine_with_data()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     response = TestClient(main.app).get(
-        "/api/sleep/users/alice/daily?date=1999-01-01"
+        "/api/sleep/users/alice/daily?date=1999-01-01",
+        headers=_auth(),
     )
 
     assert response.status_code == 200
@@ -195,7 +227,8 @@ def test_user_daily_404s_for_unknown_user(monkeypatch):
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     response = TestClient(main.app).get(
-        "/api/sleep/users/carol/daily?date=2026-05-22"
+        "/api/sleep/users/carol/daily?date=2026-05-22",
+        headers=_auth(),
     )
 
     assert response.status_code == 404
@@ -207,7 +240,8 @@ def test_user_weekly_ranks_correctly(monkeypatch):
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     response = TestClient(main.app).get(
-        "/api/sleep/users/alice/weekly?as_of=2026-05-24"
+        "/api/sleep/users/alice/weekly?as_of=2026-05-24",
+        headers=_auth(),
     )
 
     assert response.status_code == 200
@@ -221,7 +255,8 @@ def test_user_summary_picks_best_night_and_counts_nights(monkeypatch):
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     response = TestClient(main.app).get(
-        "/api/sleep/users/alice/summary"
+        "/api/sleep/users/alice/summary",
+        headers=_auth(),
     )
 
     assert response.status_code == 200
@@ -245,7 +280,10 @@ def test_user_summary_route_has_rank_and_score(monkeypatch):
     engine = _engine_with_data()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
-    resp = TestClient(main.app).get("/api/sleep/users/alice/summary")
+    resp = TestClient(main.app).get(
+        "/api/sleep/users/alice/summary",
+        headers=_auth(),
+    )
 
     assert resp.status_code == 200
     body = resp.json()
@@ -260,7 +298,8 @@ def test_user_monthly_returns_breakdown(monkeypatch):
     # Rolling 30-day window ending 2026-06-02: start=2026-05-04, end=2026-06-02.
     # Both alice nights (2026-05-21, 2026-05-22) fall within this window.
     response = TestClient(main.app).get(
-        "/api/sleep/users/alice/monthly?as_of=2026-06-02"
+        "/api/sleep/users/alice/monthly?as_of=2026-06-02",
+        headers=_auth(),
     )
 
     assert response.status_code == 200

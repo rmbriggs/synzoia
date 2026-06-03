@@ -1,11 +1,12 @@
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.app import db
+from backend.app.auth import require_user
 from backend.app.errors import register_error_handlers
 from backend.app.routes import cron as cron_routes
 from backend.app.routes import posts as posts_routes
@@ -27,6 +28,14 @@ app.include_router(sleep_routes.router)
 # for identifiers.
 _TABLES = ("profiles", "steps", "posts", "sleep")
 _DUMP_LIMIT = 100
+
+# Columns redacted from the /api/db/dump response per-table. The
+# `profiles.token` value IS the auth credential, so dumping it would
+# let any logged-in user impersonate anyone else. Drop it from the
+# response shape entirely (the column still exists in the DB).
+_REDACTED_COLUMNS: dict[str, tuple[str, ...]] = {
+    "profiles": ("token",),
+}
 
 
 @app.get("/api/health")
@@ -85,23 +94,36 @@ def health_db() -> dict:
 
 
 @app.get("/api/db/dump")
-def db_dump() -> dict:
-    """Dev-only: dump up to _DUMP_LIMIT rows from each v1 table. Backs the
-    /db page. Per-table query failures are reported in `errors[name]` and
-    the table's row list is left empty rather than erroring the whole
-    response."""
+def db_dump(user_id: int = Depends(require_user)) -> dict:
+    """Dev/admin: dump up to _DUMP_LIMIT rows from each v1 table. Backs
+    the /db page used for demos and debugging.
+
+    Hardened against credential leakage:
+      - Requires a valid Bearer token (anonymous requests get 401).
+      - Strips `_REDACTED_COLUMNS` per table from the response — most
+        importantly `profiles.token`, which IS the auth credential and
+        would otherwise let any logged-in user impersonate everyone
+        else.
+
+    Per-table query failures are reported in `errors[name]`; the table's
+    row list is left empty rather than erroring the whole response."""
+    del user_id  # auth-only; identity not used inside the handler
     engine = db.get_engine()
     tables: dict[str, list[dict[str, Any]]] = {}
     errors: dict[str, str | None] = {}
     with engine.connect() as conn:
         for name in _TABLES:
+            redacted = _REDACTED_COLUMNS.get(name, ())
             try:
                 rows = (
                     conn.execute(text(f"SELECT * FROM {name} LIMIT {_DUMP_LIMIT}"))
                     .mappings()
                     .all()
                 )
-                tables[name] = [dict(r) for r in rows]
+                tables[name] = [
+                    {k: v for k, v in dict(r).items() if k not in redacted}
+                    for r in rows
+                ]
                 errors[name] = None
             except SQLAlchemyError as e:
                 tables[name] = []
