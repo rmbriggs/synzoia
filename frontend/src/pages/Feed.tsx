@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Card from '@/components/ui/AppCard';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorCard from '@/components/ui/ErrorCard';
@@ -10,13 +11,48 @@ import RecapPost from '@/components/feed/RecapPost';
 import SleepPost from '@/components/feed/SleepPost';
 import { getFeed } from '@/api/posts';
 import { groupPostsByDay } from '@/lib/feedGroups';
+import { supabase } from '@/lib/supabase';
 
 export default function Feed() {
+  const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ['posts', 'feed', 50],
     queryFn: () => getFeed(50),
     staleTime: 30_000,
   });
+
+  // Real-time updates (gold "pick one"). Subscribe to INSERTs on
+  // `posts` via Supabase Realtime; when a new post lands (sleep
+  // session went final, steps milestone, leaderboard recap…), kick
+  // the feed query to refetch. We invalidate-then-refetch rather
+  // than splicing the realtime payload into the cache because the
+  // GET /api/posts response shape (joined username, derived fields,
+  // pre-rendered body) is richer than the raw row Realtime ships,
+  // and a fresh fetch is cheap (sub-second).
+  //
+  // Backend prereqs (already in Supabase):
+  //   - RLS SELECT policy on `posts` for anon role
+  //   - `posts` added to the `supabase_realtime` publication
+  //
+  // The subscription is per-mount; React StrictMode will double-
+  // invoke effects in dev, and removeChannel handles re-mounting
+  // cleanly. In prod, one channel per Feed mount.
+  useEffect(() => {
+    const channel = supabase
+      .channel('posts-feed-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'posts' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['posts'] });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   return (
     <div className="space-y-6">
