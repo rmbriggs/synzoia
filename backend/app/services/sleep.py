@@ -30,6 +30,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import IntegrityError
 
 from backend.app.services.windows import cap_and_sum, rolling_bounds
 from backend.app.schemas.sleep import (
@@ -566,20 +567,29 @@ def create_sleep_post(
         if isinstance(wake_time, datetime)
         else str(wake_time)
     )
-    conn.execute(
-        text(
-            "INSERT INTO posts "
-            "(user_id, username, type, timestamp, details, body) "
-            "VALUES (:uid, :u, 'sleep', :ts, :details, :body)"
-        ),
-        {
-            "uid": user_id,
-            "u": username_row["username"],
-            "ts": ts_str,
-            "details": details_str,
-            "body": _format_sleep_body(duration_min),
-        },
-    )
+    # Defense-in-depth against the check-then-insert race: migration
+    # 0011 puts a partial UNIQUE index on (user_id, night_of-in-details)
+    # for type='sleep'. If two ingests race for the same night, the
+    # loser hits IntegrityError and we treat it as already-posted
+    # rather than letting the transaction blow up.
+    try:
+        conn.execute(
+            text(
+                "INSERT INTO posts "
+                "(user_id, username, type, timestamp, details, body) "
+                "VALUES (:uid, :u, 'sleep', :ts, :details, :body)"
+            ),
+            {
+                "uid": user_id,
+                "u": username_row["username"],
+                "ts": ts_str,
+                "details": details_str,
+                "body": _format_sleep_body(duration_min),
+            },
+        )
+    except IntegrityError:
+        # Concurrent ingest beat us to it; the canonical post exists.
+        return
 
 
 def maybe_create_sleep_session_post(conn: Connection, session) -> None:

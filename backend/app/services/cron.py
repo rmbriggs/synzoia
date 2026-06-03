@@ -14,6 +14,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import IntegrityError
 
 from backend.app.services import steps as svc_steps
 
@@ -71,23 +72,32 @@ def write_daily_recap(conn: Connection, today: date) -> dict:
     body = "Yesterday's top 3"
     now_utc_naive = datetime.now(timezone.utc).replace(tzinfo=None)
 
-    row = (
-        conn.execute(
-            text(
-                "INSERT INTO posts "
-                "(user_id, username, type, timestamp, details, body) "
-                "VALUES (:uid, :u, 'leaderboard_recap', :ts, :details, :body) "
-                "RETURNING id, user_id, username, type, timestamp, details, body"
-            ),
-            {
-                "uid": top1_uid,
-                "u": top1_username,
-                "ts": now_utc_naive,
-                "details": details_str,
-                "body": body,
-            },
+    # Defense-in-depth against the check-then-insert race: migration
+    # 0011 puts a partial UNIQUE index on `details->>'date'` for
+    # type='leaderboard_recap'. If two cron firings race (or the
+    # endpoint is hit manually while cron runs), the loser's insert
+    # hits IntegrityError — treat as already_posted, the canonical
+    # row stays.
+    try:
+        row = (
+            conn.execute(
+                text(
+                    "INSERT INTO posts "
+                    "(user_id, username, type, timestamp, details, body) "
+                    "VALUES (:uid, :u, 'leaderboard_recap', :ts, :details, :body) "
+                    "RETURNING id, user_id, username, type, timestamp, details, body"
+                ),
+                {
+                    "uid": top1_uid,
+                    "u": top1_username,
+                    "ts": now_utc_naive,
+                    "details": details_str,
+                    "body": body,
+                },
+            )
+            .mappings()
+            .one()
         )
-        .mappings()
-        .one()
-    )
+    except IntegrityError:
+        return {"skipped": "already_posted"}
     return {"inserted": dict(row)}
