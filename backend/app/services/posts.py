@@ -45,9 +45,11 @@ def create_post(
     post_type: PostType,
     timestamp: datetime,
 ) -> PostResponse:
-    """Insert one post row on behalf of `user_id`. The username column
-    is denormalized — we look it up from `profiles` here so callers
-    can't spoof it via the request body."""
+    """Insert one post row on behalf of `user_id`. Username is NOT
+    stored on the row — it's resolved from `profiles` at read time so
+    a rename automatically updates every old post (see migration 0011).
+    We still look it up here so the immediate response shape includes
+    the current username without an extra round-trip from the caller."""
     profile = (
         conn.execute(
             text("SELECT username FROM profiles WHERE id = :id"),
@@ -64,13 +66,12 @@ def create_post(
     row = (
         conn.execute(
             text(
-                "INSERT INTO posts (user_id, username, type, timestamp) "
-                "VALUES (:user_id, :username, :type, :timestamp) "
-                "RETURNING id, user_id, username, type, timestamp, details, body"
+                "INSERT INTO posts (user_id, type, timestamp) "
+                "VALUES (:user_id, :type, :timestamp) "
+                "RETURNING id, user_id, type, timestamp, details, body"
             ),
             {
                 "user_id": user_id,
-                "username": profile["username"],
                 "type": post_type,
                 "timestamp": timestamp,
             },
@@ -81,7 +82,7 @@ def create_post(
     return PostResponse(
         id=int(row["id"]),
         user_id=int(row["user_id"]),
-        username=row["username"],
+        username=profile["username"],
         type=row["type"],
         timestamp=row["timestamp"],
         details=_parse_details(row["details"]),
@@ -109,13 +110,19 @@ def list_feed(
     `type_filter` narrows to one activity type."""
     capped = _clamp_limit(limit)
 
+    # Username is JOINed from profiles, not stored on posts (see
+    # migration 0011). The JOIN is INNER because posts.user_id has an
+    # ON DELETE CASCADE FK to profiles.id — a post without a profile
+    # can't exist.
     if type_filter is None:
         rows = (
             conn.execute(
                 text(
-                    "SELECT id, user_id, username, type, timestamp, details, body "
-                    "FROM posts "
-                    "ORDER BY timestamp DESC, id DESC "
+                    "SELECT p.id, p.user_id, pr.username, p.type, "
+                    "       p.timestamp, p.details, p.body "
+                    "FROM posts p "
+                    "JOIN profiles pr ON pr.id = p.user_id "
+                    "ORDER BY p.timestamp DESC, p.id DESC "
                     "LIMIT :limit"
                 ),
                 {"limit": capped},
@@ -127,10 +134,12 @@ def list_feed(
         rows = (
             conn.execute(
                 text(
-                    "SELECT id, user_id, username, type, timestamp, details, body "
-                    "FROM posts "
-                    "WHERE type = :type "
-                    "ORDER BY timestamp DESC, id DESC "
+                    "SELECT p.id, p.user_id, pr.username, p.type, "
+                    "       p.timestamp, p.details, p.body "
+                    "FROM posts p "
+                    "JOIN profiles pr ON pr.id = p.user_id "
+                    "WHERE p.type = :type "
+                    "ORDER BY p.timestamp DESC, p.id DESC "
                     "LIMIT :limit"
                 ),
                 {"type": type_filter, "limit": capped},
@@ -212,13 +221,17 @@ def list_user_feed(
     capped = _clamp_limit(limit)
     user_id = int(profile["id"])
 
+    # Username comes from `profiles` via INNER JOIN (see migration 0011 +
+    # list_feed's note above).
     authored_rows = (
         conn.execute(
             text(
-                "SELECT id, user_id, username, type, timestamp, details, body "
-                "FROM posts "
-                "WHERE user_id = :uid "
-                "ORDER BY timestamp DESC, id DESC "
+                "SELECT p.id, p.user_id, pr.username, p.type, "
+                "       p.timestamp, p.details, p.body "
+                "FROM posts p "
+                "JOIN profiles pr ON pr.id = p.user_id "
+                "WHERE p.user_id = :uid "
+                "ORDER BY p.timestamp DESC, p.id DESC "
                 "LIMIT :limit"
             ),
             {"uid": user_id, "limit": capped},
@@ -235,10 +248,12 @@ def list_user_feed(
     recap_rows = (
         conn.execute(
             text(
-                "SELECT id, user_id, username, type, timestamp, details, body "
-                "FROM posts "
-                "WHERE type = 'leaderboard_recap' "
-                "ORDER BY timestamp DESC, id DESC"
+                "SELECT p.id, p.user_id, pr.username, p.type, "
+                "       p.timestamp, p.details, p.body "
+                "FROM posts p "
+                "JOIN profiles pr ON pr.id = p.user_id "
+                "WHERE p.type = 'leaderboard_recap' "
+                "ORDER BY p.timestamp DESC, p.id DESC"
             )
         )
         .mappings()

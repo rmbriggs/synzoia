@@ -44,10 +44,12 @@ def _engine_with_users():
         )
         conn.execute(
             text(
+                # Mirrors live schema post-migration 0011 — no
+                # username column on posts; feed JOINs profiles to
+                # resolve the writer's current name.
                 "CREATE TABLE posts ("
                 "id integer primary key autoincrement, "
                 "user_id integer not null, "
-                "username text not null, "
                 "type text not null, "
                 "timestamp text not null, "
                 "details text, "

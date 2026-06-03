@@ -34,10 +34,12 @@ def _engine_with_users(seed_posts: bool = False):
         )
         conn.execute(
             text(
+                # Mirrors live schema post-migration 0011 — no
+                # username column on posts; feed JOINs profiles to
+                # resolve the writer's current name.
                 "CREATE TABLE posts ("
                 "id integer primary key autoincrement, "
                 "user_id integer not null, "
-                "username text not null, "
                 "type text not null, "
                 "timestamp text not null, "
                 "details text, "
@@ -57,25 +59,22 @@ def _engine_with_users(seed_posts: bool = False):
         if seed_posts:
             conn.execute(
                 text(
-                    "INSERT INTO posts (user_id, username, type, timestamp) "
-                    "VALUES (:uid, :u, :t, :ts)"
+                    "INSERT INTO posts (user_id, type, timestamp) "
+                    "VALUES (:uid, :t, :ts)"
                 ),
                 [
                     {
                         "uid": 1,
-                        "u": "alice",
                         "t": "steps",
                         "ts": "2026-05-23T08:00:00",
                     },
                     {
                         "uid": 1,
-                        "u": "alice",
                         "t": "sleep",
                         "ts": "2026-05-22T22:00:00",
                     },
                     {
                         "uid": 2,
-                        "u": "bob",
                         "t": "workout",
                         "ts": "2026-05-23T18:00:00",
                     },
@@ -293,8 +292,8 @@ def test_user_feed_includes_recap_where_user_appears_in_top(monkeypatch):
         conn.execute(
             text(
                 "INSERT INTO posts "
-                "(user_id, username, type, timestamp, details, body) "
-                "VALUES (1, 'alice', 'leaderboard_recap', "
+                "(user_id, type, timestamp, details, body) "
+                "VALUES (1, 'leaderboard_recap', "
                 "'2026-05-24T11:00:00', :details, 'Yesterday''s top 3')"
             ),
             {
@@ -321,8 +320,8 @@ def test_user_feed_excludes_recap_where_user_not_in_top(monkeypatch):
         conn.execute(
             text(
                 "INSERT INTO posts "
-                "(user_id, username, type, timestamp, details, body) "
-                "VALUES (1, 'alice', 'leaderboard_recap', "
+                "(user_id, type, timestamp, details, body) "
+                "VALUES (1, 'leaderboard_recap', "
                 "'2026-05-24T11:00:00', :details, 'Yesterday''s top 3')"
             ),
             {
@@ -347,8 +346,8 @@ def test_user_feed_dedupes_recap_authored_by_target(monkeypatch):
         conn.execute(
             text(
                 "INSERT INTO posts "
-                "(user_id, username, type, timestamp, details, body) "
-                "VALUES (1, 'alice', 'leaderboard_recap', "
+                "(user_id, type, timestamp, details, body) "
+                "VALUES (1, 'leaderboard_recap', "
                 "'2026-05-24T11:00:00', :details, 'Yesterday''s top 3')"
             ),
             {

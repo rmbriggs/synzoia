@@ -633,33 +633,22 @@ def detect_and_insert_milestone(
         return None
 
     threshold = max(newly_crossed)
-    username_row = (
-        conn.execute(
-            text("SELECT username FROM profiles WHERE id = :uid"),
-            {"uid": user_id},
-        )
-        .mappings()
-        .first()
-    )
-    if username_row is None:
-        return None
-    username = username_row["username"]
-
     details_str = _json.dumps(
         {"threshold": threshold, "date": ct_date.isoformat()}
     )
     body = f"hit {threshold:,} steps"
 
+    # `username` is no longer a column on `posts` (migration 0011);
+    # feed reads JOIN profiles on user_id to get the current name.
     row = (
         conn.execute(
             text(
-                "INSERT INTO posts (user_id, username, type, timestamp, details, body) "
-                "VALUES (:uid, :u, 'steps_milestone', :ts, :details, :body) "
+                "INSERT INTO posts (user_id, type, timestamp, details, body) "
+                "VALUES (:uid, 'steps_milestone', :ts, :details, :body) "
                 "RETURNING id"
             ),
             {
                 "uid": user_id,
-                "u": username,
                 "ts": timestamp,
                 "details": details_str,
                 "body": body,

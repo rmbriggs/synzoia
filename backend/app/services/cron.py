@@ -65,23 +65,23 @@ def write_daily_recap(conn: Connection, today: date) -> dict:
         for uid, total in ranked
     ]
     top1_uid, _top1_total = ranked[0]
-    top1_username = usernames[top1_uid]
 
     details_str = _json.dumps({"date": yesterday_iso, "top": top})
     body = "Yesterday's top 3"
     now_utc_naive = datetime.now(timezone.utc).replace(tzinfo=None)
 
+    # `username` is no longer a column on `posts` (migration 0011);
+    # feed reads JOIN profiles on user_id to get the current name.
     row = (
         conn.execute(
             text(
                 "INSERT INTO posts "
-                "(user_id, username, type, timestamp, details, body) "
-                "VALUES (:uid, :u, 'leaderboard_recap', :ts, :details, :body) "
-                "RETURNING id, user_id, username, type, timestamp, details, body"
+                "(user_id, type, timestamp, details, body) "
+                "VALUES (:uid, 'leaderboard_recap', :ts, :details, :body) "
+                "RETURNING id, user_id, type, timestamp, details, body"
             ),
             {
                 "uid": top1_uid,
-                "u": top1_username,
                 "ts": now_utc_naive,
                 "details": details_str,
                 "body": body,

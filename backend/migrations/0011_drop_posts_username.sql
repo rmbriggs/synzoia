@@ -1,0 +1,25 @@
+-- ============================================================================
+-- 0011_drop_posts_username.sql
+-- ============================================================================
+-- Drops the denormalized `username` column from `posts`. The same string
+-- was being duplicated on every post row at write time alongside the
+-- `user_id` foreign key, which:
+--
+--   1. Made the feed lie if a user renamed themselves — old posts kept
+--      the frozen string. CLAUDE.md "push back if Claude tries to..."
+--      names this exact pattern.
+--   2. Wasted a row's worth of bytes per post for redundant data.
+--   3. Created two sources of truth (posts.username vs profiles.username)
+--      that could drift out of sync under any rename or admin edit.
+--
+-- After this migration the feed read paths in `services/posts.py` JOIN
+-- `profiles` on `user_id` and select `profiles.username` live. The
+-- response shape the frontend sees is unchanged — every post still has
+-- a `username` field — but the value is now always current.
+--
+-- `IF EXISTS` makes this safe to re-run against any DB state (already
+-- dropped, never had the column, etc.). No data loss: usernames are
+-- still in `profiles.username` and recoverable via the `user_id` FK.
+-- ============================================================================
+
+alter table public.posts drop column if exists username;
