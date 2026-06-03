@@ -27,6 +27,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import IntegrityError
 
 from backend.app.services.windows import cap_and_sum, rolling_bounds
 from backend.app.schemas.steps import (
@@ -650,22 +651,32 @@ def detect_and_insert_milestone(
     )
     body = f"hit {threshold:,} steps"
 
-    row = (
-        conn.execute(
-            text(
-                "INSERT INTO posts (user_id, username, type, timestamp, details, body) "
-                "VALUES (:uid, :u, 'steps_milestone', :ts, :details, :body) "
-                "RETURNING id"
-            ),
-            {
-                "uid": user_id,
-                "u": username,
-                "ts": timestamp,
-                "details": details_str,
-                "body": body,
-            },
+    # Defense-in-depth against the check-then-insert race: migration
+    # 0011 puts a partial UNIQUE index on (user_id, threshold, date)
+    # for type='steps_milestone'. If a concurrent step write reads
+    # "no milestone yet" at the same moment we do, both will reach
+    # INSERT and the loser gets IntegrityError → treat as no-op.
+    try:
+        row = (
+            conn.execute(
+                text(
+                    "INSERT INTO posts (user_id, username, type, timestamp, details, body) "
+                    "VALUES (:uid, :u, 'steps_milestone', :ts, :details, :body) "
+                    "RETURNING id"
+                ),
+                {
+                    "uid": user_id,
+                    "u": username,
+                    "ts": timestamp,
+                    "details": details_str,
+                    "body": body,
+                },
+            )
+            .mappings()
+            .one()
         )
-        .mappings()
-        .one()
-    )
+    except IntegrityError:
+        # Someone else's concurrent insert won; the canonical post
+        # for this (user, day, threshold) already exists.
+        return None
     return int(row["id"])

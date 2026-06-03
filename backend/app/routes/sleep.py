@@ -10,6 +10,7 @@ same default-to-current-ISO-week for the weekly view, same 404
 contract on unknown usernames.
 """
 
+import logging
 from datetime import date, datetime, timedelta
 from typing import Optional
 from zoneinfo import ZoneInfo
@@ -19,6 +20,8 @@ from fastapi import APIRouter, Depends, Query, status
 from backend.app import db
 from backend.app.auth import require_user
 from backend.app.errors import AppError
+
+logger = logging.getLogger(__name__)
 from backend.app.schemas.sleep import (
     GlobalDailyResponse,
     GlobalSummaryResponse,
@@ -279,10 +282,27 @@ def ingest_sleep(
     except ValueError as e:
         # Defensive — any other ValueError from the service.
         raise AppError(422, "invalid_sleep", str(e)) from e
-    except Exception as e:
-        # Re-raise so FastAPI logs the traceback in Vercel logs.
-        # Intentionally not swallowed; this is a write path.
-        # noqa: BLE001 — diagnostic surface
-        raise
+    except Exception as e:  # noqa: BLE001 — diagnostic surface
+        # An unexpected error in the write path. Log the exception
+        # type + a couple of structural counts so we have something
+        # actionable in Vercel logs, but do NOT log the raw payload
+        # (which contains user health-data timestamps — PII) and do
+        # not let the traceback bubble unredacted to the client.
+        # Returning an opaque 500 means the response body cannot leak
+        # internal state; the exception class + sample counts in the
+        # log line are enough to debug from.
+        try:
+            sample_count = len((req.values or "").split("\n"))
+        except Exception:
+            sample_count = -1
+        logger.exception(
+            "sleep ingest failed",
+            extra={
+                "user_id": user_id,
+                "sample_count": sample_count,
+                "exception_class": type(e).__name__,
+            },
+        )
+        raise AppError(500, "internal_error", "Internal error") from e
 
 

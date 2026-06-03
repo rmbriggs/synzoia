@@ -1,9 +1,18 @@
 from typing import Any
 
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+
+# Load `.env` (or `.env.local`) once at import time so any teammate
+# running `uvicorn backend.app.main:app` locally picks up DATABASE_URL,
+# SUPABASE_URL, etc., without having to remember to source the file
+# manually. python-dotenv is a no-op in production where Vercel
+# injects env vars directly, so this is safe to leave on in all
+# environments.
+load_dotenv()
 
 from backend.app import db
 from backend.app.auth import require_user
