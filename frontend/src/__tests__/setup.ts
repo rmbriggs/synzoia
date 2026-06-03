@@ -1,5 +1,21 @@
 import '@testing-library/jest-dom/vitest';
-import { afterEach } from 'vitest';
+import { afterEach, vi } from 'vitest';
+
+// Globally stub the Supabase client. The real client throws at import
+// time if env vars are missing, and would try to open a WebSocket for
+// any .channel().subscribe() call in jsdom. Tests that need to assert
+// realtime behavior can override this with vi.mock inside the file.
+vi.mock('@/lib/supabase', () => {
+  const subscribe = vi.fn(() => ({ unsubscribe: vi.fn() }));
+  const on = vi.fn(() => ({ subscribe }));
+  const channel = vi.fn(() => ({ on, subscribe }));
+  return {
+    supabase: {
+      channel,
+      removeChannel: vi.fn(),
+    },
+  };
+});
 
 // jsdom 29 (the version pinned here) does not expose window.localStorage.
 // Several features (useTheme, useCurrentUser) persist to it, so provide a

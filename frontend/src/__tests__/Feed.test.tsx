@@ -4,6 +4,9 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Feed from '@/pages/Feed';
 
+// The Supabase client is globally stubbed in setup.ts so the Realtime
+// subscription Feed mounts is harmless under jsdom.
+
 function renderFeed() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
