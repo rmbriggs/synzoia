@@ -86,6 +86,15 @@ def _user_not_found(username: str) -> AppError:
     )
 
 
+# Per-user reads are auth-gated: any authenticated member may view
+# any other member's stats (this is a private-group app — peer
+# visibility is the intended design), but anonymous callers cannot
+# scrape per-user step history by walking usernames. The `viewer_id`
+# parameter is required only to satisfy the auth dependency; the
+# handler does not branch on it because every member has equal read
+# access.
+
+
 @router.get(
     "/users/{username}/daily",
     response_model=UserDailyResponse,
@@ -93,7 +102,9 @@ def _user_not_found(username: str) -> AppError:
 def user_daily(
     username: str,
     date_: Optional[date] = Query(default=None, alias="date"),
+    viewer_id: int = Depends(require_user),
 ) -> UserDailyResponse:
+    del viewer_id  # auth-only; identity not used inside the handler
     target = date_ or _today()
     try:
         with db.get_engine().connect() as conn:
@@ -109,7 +120,9 @@ def user_daily(
 def user_weekly(
     username: str,
     as_of: Optional[date] = Query(default=None),
+    viewer_id: int = Depends(require_user),
 ) -> UserWeeklyResponse:
+    del viewer_id
     anchor = as_of or _today()
     try:
         with db.get_engine().connect() as conn:
@@ -125,8 +138,10 @@ def user_weekly(
 def user_monthly(
     username: str,
     as_of: Optional[date] = Query(default=None),
+    viewer_id: int = Depends(require_user),
 ) -> UserMonthlyResponse:
     """One user's stats for the rolling last 30 days ending `as_of` (CT today by default)."""
+    del viewer_id
     anchor = as_of or _today()
     try:
         with db.get_engine().connect() as conn:
@@ -147,7 +162,11 @@ def global_ranking(
     "/users/{username}/summary",
     response_model=UserSummaryResponse,
 )
-def user_summary(username: str) -> UserSummaryResponse:
+def user_summary(
+    username: str,
+    viewer_id: int = Depends(require_user),
+) -> UserSummaryResponse:
+    del viewer_id
     try:
         with db.get_engine().connect() as conn:
             return svc.get_user_summary(conn, username, _today())
