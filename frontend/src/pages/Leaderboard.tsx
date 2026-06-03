@@ -8,15 +8,14 @@ import RowListSkeleton from '@/components/ui/RowListSkeleton';
 import TabStrip from '@/components/ui/TabStrip';
 import {
   getGlobalDaily,
-  getGlobalWeekly,
-  type DailyTotal,
+  getGlobalRanking,
   type LeaderboardEntry,
 } from '@/api/steps';
 import { currentDate } from '@/lib/dates';
 
 const TABS = [
   { key: 'today', label: 'Today' },
-  { key: 'week', label: 'This Week' },
+  { key: 'ranking', label: 'Last 30 days' },
 ];
 
 function formatNumber(n: number): string {
@@ -24,15 +23,12 @@ function formatNumber(n: number): string {
 }
 
 function formatHeadingDate(iso: string): string {
-  // Leaderboard's heading drops the year (already implied by the
-  // current week/today context) — use the existing helper trimmed.
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(y, m - 1, d).toLocaleDateString('en-US', {
     month: 'long',
     day: 'numeric',
   });
 }
-
 
 function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
   return (
@@ -112,39 +108,11 @@ function TodayPanel() {
   );
 }
 
-function WeeklyBars({ days }: { days: DailyTotal[] }) {
-  const max = Math.max(...days.map((d) => d.total), 1);
-  return (
-    <div className="grid grid-cols-7 gap-2 h-28 items-end">
-      {days.map((d) => {
-        const heightPct = (d.total / max) * 100;
-        return (
-          <div
-            key={d.date}
-            className="flex flex-col items-center gap-1.5 h-full"
-            title={`${d.date}: ${formatNumber(d.total)}`}
-          >
-            <div className="flex-1 w-full flex items-end">
-              <div
-                className="w-full bg-primary/70 rounded-t"
-                style={{ height: `${Math.max(heightPct, 2)}%` }}
-                aria-label={`${d.date}: ${formatNumber(d.total)} steps`}
-              />
-            </div>
-            <span className="label-mono text-[10px] text-muted-foreground">
-              {d.date.slice(-2)}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function WeeklyPanel() {
+function RankingPanel() {
+  const today = currentDate();
   const query = useQuery({
-    queryKey: ['steps', 'weekly'],
-    queryFn: () => getGlobalWeekly(),
+    queryKey: ['steps', 'ranking', today],
+    queryFn: () => getGlobalRanking(today),
     staleTime: 30_000,
   });
 
@@ -160,35 +128,24 @@ function WeeklyPanel() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <div className="flex items-baseline justify-between gap-3 mb-3">
-          <h2 className="font-display text-2xl tracking-tight">
-            {formatHeadingDate(query.data.week_start)} –{' '}
-            {formatHeadingDate(query.data.week_end)}
-          </h2>
-          <span className="label-mono text-muted-foreground">
-            {formatNumber(query.data.total_steps)} total steps
-          </span>
-        </div>
-        <WeeklyBars days={query.data.daily_breakdown} />
-      </Card>
-      <Card>
-        <h3 className="font-display text-xl tracking-tight mb-1">
-          Standings
-        </h3>
-        <LeaderboardList
-          leaderboard={query.data.leaderboard}
-          emptyMessage="No one has posted yet this week."
-        />
-      </Card>
-    </div>
+    <Card>
+      <div className="flex items-baseline justify-between gap-3 mb-2">
+        <h2 className="font-display text-2xl tracking-tight">Last 30 days</h2>
+        <span className="label-mono text-muted-foreground">
+          {formatNumber(query.data.total_steps)} total steps
+        </span>
+      </div>
+      <LeaderboardList
+        leaderboard={query.data.leaderboard}
+        emptyMessage="No one has posted in the last 30 days."
+      />
+    </Card>
   );
 }
 
 export default function Leaderboard() {
   const [params] = useSearchParams();
-  const active = params.get('tab') ?? 'week';
+  const active = params.get('tab') ?? 'ranking';
 
   return (
     <div className="space-y-6">
@@ -196,8 +153,8 @@ export default function Leaderboard() {
         title="Leaderboard"
         description="Step rankings across all members."
       />
-      <TabStrip tabs={TABS} defaultKey="week" />
-      {active === 'today' ? <TodayPanel /> : <WeeklyPanel />}
+      <TabStrip tabs={TABS} defaultKey="ranking" />
+      {active === 'today' ? <TodayPanel /> : <RankingPanel />}
     </div>
   );
 }

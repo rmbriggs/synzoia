@@ -39,21 +39,37 @@ function mockOnce(url: RegExp, payload: unknown, status = 200) {
 }
 
 describe('Leaderboard page', () => {
-  it('defaults to the weekly tab and renders the weekly leaderboard + breakdown', async () => {
+  it('ranks by the 30-day board and keeps a Today tab', async () => {
     const payload = {
-      week_start: '2026-05-18',
-      week_end: '2026-05-24',
+      week_start: '2026-05-04',
+      week_end: '2026-06-03',
       total_steps: 50000,
       leaderboard: [
         { rank: 1, username: 'alice', total: 30000 },
         { rank: 2, username: 'bob', total: 20000 },
       ],
-      daily_breakdown: Array.from({ length: 7 }).map((_, i) => ({
-        date: `2026-05-${String(18 + i).padStart(2, '0')}`,
-        total: (i + 1) * 1000,
-      })),
+      daily_breakdown: [],
     };
-    globalThis.fetch = mockOnce(/\/steps\/weekly/, payload);
+    globalThis.fetch = mockOnce(/\/steps\/ranking/, payload);
+
+    renderAt('/leaderboard');
+
+    expect(await screen.findByText('Last 30 days')).toBeInTheDocument();
+    expect(screen.getByText('Today')).toBeInTheDocument();
+  });
+
+  it('defaults to the ranking tab and renders the 30-day leaderboard', async () => {
+    const payload = {
+      week_start: '2026-05-04',
+      week_end: '2026-06-03',
+      total_steps: 50000,
+      leaderboard: [
+        { rank: 1, username: 'alice', total: 30000 },
+        { rank: 2, username: 'bob', total: 20000 },
+      ],
+      daily_breakdown: [],
+    };
+    globalThis.fetch = mockOnce(/\/steps\/ranking/, payload);
 
     renderAt('/leaderboard');
 
@@ -88,29 +104,26 @@ describe('Leaderboard page', () => {
     expect(screen.getByText('21,000 total steps')).toBeInTheDocument();
   });
 
-  it('shows the empty state when no one has posted this week', async () => {
+  it('shows the empty state when no one has posted in the last 30 days', async () => {
     const payload = {
-      week_start: '2026-05-18',
-      week_end: '2026-05-24',
+      week_start: '2026-05-04',
+      week_end: '2026-06-03',
       total_steps: 0,
       leaderboard: [],
-      daily_breakdown: Array.from({ length: 7 }).map((_, i) => ({
-        date: `2026-05-${String(18 + i).padStart(2, '0')}`,
-        total: 0,
-      })),
+      daily_breakdown: [],
     };
-    globalThis.fetch = mockOnce(/\/steps\/weekly/, payload);
+    globalThis.fetch = mockOnce(/\/steps\/ranking/, payload);
 
     renderAt('/leaderboard');
 
     await waitFor(() => {
       expect(
-        screen.getByText('No one has posted yet this week.'),
+        screen.getByText('No one has posted in the last 30 days.'),
       ).toBeInTheDocument();
     });
   });
 
-  it('shows an error card with a retry button when the weekly request fails', async () => {
+  it('shows an error card with a retry button when the ranking request fails', async () => {
     globalThis.fetch = vi
       .fn()
       .mockResolvedValue(new Response('boom', { status: 500 }));
@@ -124,18 +137,32 @@ describe('Leaderboard page', () => {
     });
   });
 
-  it('links each leaderboard row to /u/:username', async () => {
+  it('labels the ranking tab "Last 30 days"', async () => {
     const payload = {
-      week_start: '2026-05-18',
-      week_end: '2026-05-24',
+      week_start: '2026-05-04',
+      week_end: '2026-06-03',
       total_steps: 9000,
       leaderboard: [{ rank: 1, username: 'alice', total: 9000 }],
-      daily_breakdown: Array.from({ length: 7 }).map((_, i) => ({
-        date: `2026-05-${String(18 + i).padStart(2, '0')}`,
-        total: 0,
-      })),
+      daily_breakdown: [],
     };
-    globalThis.fetch = mockOnce(/\/steps\/weekly/, payload);
+    globalThis.fetch = mockOnce(/\/steps\/ranking/, payload);
+
+    renderAt('/leaderboard');
+
+    expect(await screen.findByText('Last 30 days')).toBeInTheDocument();
+    expect(screen.queryByText('Last 7 days')).not.toBeInTheDocument();
+    expect(screen.queryByText('This Week')).not.toBeInTheDocument();
+  });
+
+  it('links each leaderboard row to /u/:username', async () => {
+    const payload = {
+      week_start: '2026-05-04',
+      week_end: '2026-06-03',
+      total_steps: 9000,
+      leaderboard: [{ rank: 1, username: 'alice', total: 9000 }],
+      daily_breakdown: [],
+    };
+    globalThis.fetch = mockOnce(/\/steps\/ranking/, payload);
 
     renderAt('/leaderboard');
 

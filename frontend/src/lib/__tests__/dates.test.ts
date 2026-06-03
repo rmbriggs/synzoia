@@ -5,6 +5,7 @@ import {
   currentMonthYYYYMM,
   formatDayHeader,
   formatDuration,
+  lastNightDate,
 } from '@/lib/dates';
 
 describe('currentMonthYYYYMM', () => {
@@ -54,5 +55,16 @@ describe('formatDayHeader', () => {
 
   it('labels older days as "Weekday, Month Day"', () => {
     expect(formatDayHeader('2026-05-27T15:00:00Z', now)).toBe('Wednesday, May 27');
+  });
+});
+
+describe('lastNightDate', () => {
+  it('is the CT day before today (the night_of you woke from this morning)', () => {
+    const now = new Date('2026-06-02T18:00:00Z'); // ~1pm CT, 2026-06-02
+    expect(lastNightDate(now)).toBe('2026-06-01');
+  });
+
+  it('matches YYYY-MM-DD shape', () => {
+    expect(lastNightDate()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });

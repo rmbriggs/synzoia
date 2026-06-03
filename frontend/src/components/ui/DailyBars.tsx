@@ -38,9 +38,17 @@ export default function DailyBars({
         return (
           <div
             key={d.date}
-            className="flex flex-col items-center gap-1.5 h-full"
-            title={`${d.date}: ${formatValue(d.total)}`}
+            className="group relative flex flex-col items-center gap-1.5 h-full"
           >
+            {/* Visible hover tooltip — the bars have no labeled y-axis, so
+                hovering reveals the exact value. Pure-CSS group-hover so it's
+                immediate (unlike the sluggish native title). */}
+            <div
+              role="tooltip"
+              className="pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md border border-border/60 bg-background/95 px-2 py-1 label-mono text-[11px] text-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 z-10"
+            >
+              {valueLabel}
+            </div>
             <div className="flex-1 w-full flex items-end">
               <div
                 className="w-full bg-primary/70 rounded-t"

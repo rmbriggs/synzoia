@@ -34,6 +34,19 @@ export function currentDate(): string {
 }
 
 /**
+ * The night_of of the night you woke from this morning — i.e. the CT
+ * calendar day BEFORE today. Sleep's `night_of` is wake-date minus one,
+ * so "last night" on the profile is today - 1. Used by the sleep
+ * "Last night" card (distinct from steps' "today").
+ */
+export function lastNightDate(now: Date = new Date()): string {
+  const todayCt = ISO_DATE_PARTS.format(now); // YYYY-MM-DD in CT
+  const [y, m, d] = todayCt.split('-').map(Number);
+  const prev = new Date(Date.UTC(y, m - 1, d - 1));
+  return prev.toISOString().slice(0, 10);
+}
+
+/**
  * Backwards-compat alias. The previous helper returned the *browser's*
  * local date — which was usually CT for the people who use this app,
  * but not always. Keeping the name so existing call sites don't need

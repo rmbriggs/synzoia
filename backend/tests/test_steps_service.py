@@ -138,16 +138,16 @@ def test_global_weekly_sums_daily_maxes_across_seven_days():
     engine = _engine()
     with engine.begin() as conn:
         alice = _add_profile(conn, "alice", "ta" + "0" * 30)
-        # Monday 2026-05-18 → Sunday 2026-05-24
+        # Rolling window: as_of=2026-05-24 → 2026-05-18..2026-05-24
         _add_step(conn, alice, "2026-05-18 09:00:00", 3000)
         _add_step(conn, alice, "2026-05-18 21:00:00", 7000)  # day max
         _add_step(conn, alice, "2026-05-19 12:00:00", 4000)
         _add_step(conn, alice, "2026-05-24 22:00:00", 10000)
-        # One day OUTSIDE the week
+        # One day OUTSIDE the window (as_of+1)
         _add_step(conn, alice, "2026-05-25 09:00:00", 8000)
 
     with engine.connect() as conn:
-        result = svc.get_global_weekly(conn, date(2026, 5, 18))
+        result = svc.get_global_weekly(conn, date(2026, 5, 24))
 
     assert result.week_start == date(2026, 5, 18)
     assert result.week_end == date(2026, 5, 24)
@@ -159,7 +159,7 @@ def test_global_weekly_sums_daily_maxes_across_seven_days():
     assert by_date[date(2026, 5, 19)] == 4000
     assert by_date[date(2026, 5, 20)] == 0
     assert by_date[date(2026, 5, 24)] == 10000
-    # 5/25 is outside the week and must not appear at all.
+    # 5/25 is outside the window and must not appear at all.
     assert date(2026, 5, 25) not in by_date
 
 
@@ -176,11 +176,7 @@ def test_global_summary_picks_best_day_and_leaders():
         _add_step(conn, bob, "2026-05-23 22:00:00", 8000)
 
     with engine.connect() as conn:
-        result = svc.get_global_summary(
-            conn,
-            today=date(2026, 5, 23),
-            week_start=date(2026, 5, 18),
-        )
+        result = svc.get_global_summary(conn, as_of=date(2026, 5, 23))
 
     assert result.total_users == 2
     assert result.total_steps_all_time == 20000 + 5000 + 12000 + 8000
@@ -196,11 +192,7 @@ def test_global_summary_picks_best_day_and_leaders():
 def test_global_summary_handles_empty_db():
     engine = _engine()
     with engine.connect() as conn:
-        result = svc.get_global_summary(
-            conn,
-            today=date(2026, 5, 23),
-            week_start=date(2026, 5, 18),
-        )
+        result = svc.get_global_summary(conn, as_of=date(2026, 5, 23))
     assert result.total_users == 0
     assert result.total_steps_all_time == 0
     assert result.today_leader is None
@@ -257,8 +249,11 @@ def test_user_weekly_ranks_correctly():
         _add_step(conn, bob, "2026-05-19 22:00:00", 8000)
 
     with engine.connect() as conn:
-        result = svc.get_user_weekly(conn, "alice", date(2026, 5, 18))
+        # as_of=2026-05-24 → rolling window 2026-05-18..2026-05-24
+        result = svc.get_user_weekly(conn, "alice", as_of=date(2026, 5, 24))
 
+    assert result.week_start == date(2026, 5, 18)
+    assert result.week_end == date(2026, 5, 24)
     assert result.weekly_total == 10000
     assert result.rank_this_week == 1
     # daily_breakdown has 7 entries, zero-filled
@@ -269,7 +264,8 @@ def test_user_weekly_ranks_correctly():
     assert by_date[date(2026, 5, 21)] == 6000
 
 
-def test_user_summary_picks_best_day_and_counts_days_active():
+def test_user_summary_picks_best_day_and_30d_score():
+    as_of = date(2026, 5, 23)
     engine = _engine()
     with engine.begin() as conn:
         alice = _add_profile(conn, "alice", "ta" + "0" * 30)
@@ -278,18 +274,19 @@ def test_user_summary_picks_best_day_and_counts_days_active():
         _add_step(conn, alice, "2026-05-19 22:00:00", 7000)
         _add_step(conn, alice, "2026-05-23 12:00:00", 3000)
         _add_step(conn, alice, "2026-05-23 22:00:00", 8000)  # day max
-        _add_step(conn, bob, "2026-05-23 22:00:00", 21000)  # > alice's all-time
+        _add_step(conn, bob, "2026-05-23 22:00:00", 21000)  # > alice's 30d total
 
     with engine.connect() as conn:
-        result = svc.get_user_summary(conn, "alice")
+        result = svc.get_user_summary(conn, "alice", as_of)
 
     assert result.username == "alice"
-    assert result.total_steps_all_time == 5000 + 7000 + 8000
+    # 30-day capped score: 3 days all within 30d of 2026-05-23, each below 20k cap
+    assert result.score == 5000 + 7000 + 8000  # = 20000
     assert result.best_day is not None
     assert result.best_day.date == date(2026, 5, 23)
     assert result.best_day.total == 8000
-    assert result.days_active == 3  # 5/18, 5/19, 5/23
-    assert result.rank_all_time == 2  # bob ahead
+    # bob: min(21000, 20000) = 20000; alice: 20000 — tied, both rank 1
+    assert result.rank == 1
 
 
 def test_user_summary_handles_user_with_no_posts():
@@ -298,9 +295,112 @@ def test_user_summary_handles_user_with_no_posts():
         _add_profile(conn, "lonely", "tl" + "0" * 30)
 
     with engine.connect() as conn:
-        result = svc.get_user_summary(conn, "lonely")
+        result = svc.get_user_summary(conn, "lonely", date(2026, 5, 23))
 
-    assert result.total_steps_all_time == 0
+    assert result.score == 0
     assert result.best_day is None
-    assert result.rank_all_time is None
-    assert result.days_active == 0
+    assert result.rank is None
+
+
+# ---------------------------------------------------------------------------
+# Rolling-window tests (new behaviour)
+# ---------------------------------------------------------------------------
+
+
+def test_rolling_user_weekly_uses_last_7_days():
+    """get_user_weekly(conn, user, as_of=date(2026,6,2)) uses rolling bounds:
+    week_start = 2026-05-27, week_end = 2026-06-02.
+    A row on as_of-3 (2026-05-30) is included; a row on as_of-8 (2026-05-25)
+    is excluded from the weekly_total. daily_breakdown has 7 entries."""
+    as_of = date(2026, 6, 2)
+    engine = _engine()
+    with engine.begin() as conn:
+        amy = _add_profile(conn, "amy", "ta_amy" + "0" * 26)
+        # Inside window: as_of-3 = 2026-05-30
+        _add_step(conn, amy, "2026-05-30 10:00:00", 5000)
+        # Outside window: as_of-8 = 2026-05-25
+        _add_step(conn, amy, "2026-05-25 10:00:00", 9999)
+
+    with engine.connect() as conn:
+        result = svc.get_user_weekly(conn, "amy", as_of=as_of)
+
+    assert result.week_start == date(2026, 5, 27)
+    assert result.week_end == date(2026, 6, 2)
+    assert len(result.daily_breakdown) == 7
+    # Only the in-window row contributes to the total
+    assert result.weekly_total == 5000
+    # Verify the out-of-window row is not counted
+    by_date = {d.date: d.total for d in result.daily_breakdown}
+    assert date(2026, 5, 30) in by_date
+    assert by_date[date(2026, 5, 30)] == 5000
+    assert date(2026, 5, 25) not in by_date
+
+
+def test_rolling_user_monthly_uses_last_30_days():
+    """get_user_monthly(conn, user, as_of=date(2026,6,2)) uses rolling bounds:
+    month_start = 2026-05-04, month_end = 2026-06-02.
+    A row on as_of-20 (2026-05-13) is included; a row on as_of-35 (2026-04-28)
+    is excluded from monthly_total. daily_breakdown is sparse (only days with data)."""
+    as_of = date(2026, 6, 2)
+    engine = _engine()
+    with engine.begin() as conn:
+        amy = _add_profile(conn, "amy", "tb_amy" + "0" * 26)
+        # Inside window: as_of-20 = 2026-05-13
+        _add_step(conn, amy, "2026-05-13 10:00:00", 7000)
+        # Outside window: as_of-35 = 2026-04-28
+        _add_step(conn, amy, "2026-04-28 10:00:00", 8888)
+
+    with engine.connect() as conn:
+        result = svc.get_user_monthly(conn, "amy", as_of=as_of)
+
+    assert result.month_start == date(2026, 5, 4)
+    assert result.month_end == date(2026, 6, 2)
+    # Only the in-window row contributes to the total
+    assert result.monthly_total == 7000
+    # Sparse breakdown: only days WITH data, so only one entry
+    assert len(result.daily_breakdown) == 1
+    assert result.daily_breakdown[0].date == date(2026, 5, 13)
+    assert result.daily_breakdown[0].total == 7000
+
+
+# ---------------------------------------------------------------------------
+# 30-day capped ranking tests (new behaviour)
+# ---------------------------------------------------------------------------
+
+
+def test_global_ranking_caps_days_and_ranks_by_30d_score():
+    from datetime import timedelta
+
+    as_of = date(2026, 6, 2)
+    engine = _engine()
+    with engine.begin() as conn:
+        amy = _add_profile(conn, "amy", "tc_amy" + "0" * 26)
+        bob = _add_profile(conn, "bob", "tc_bob" + "0" * 26)
+        _add_step(conn, amy, (as_of - timedelta(days=1)).isoformat() + " 10:00:00", 9000)
+        _add_step(conn, amy, (as_of - timedelta(days=2)).isoformat() + " 10:00:00", 9000)
+        _add_step(conn, bob, (as_of - timedelta(days=1)).isoformat() + " 10:00:00", 50000)  # capped to 20000
+
+    with engine.connect() as conn:
+        resp = svc.get_global_ranking(conn, as_of)
+
+    by_user = {e.username: (e.rank, e.total) for e in resp.leaderboard}
+    assert by_user["bob"][1] == 20000   # 50000 capped to STEPS_DAILY_CAP
+    assert by_user["amy"][1] == 18000
+    assert by_user["bob"][0] == 1 and by_user["amy"][0] == 2
+
+
+def test_user_summary_returns_30d_rank_and_score():
+    from datetime import timedelta
+
+    as_of = date(2026, 6, 2)
+    engine = _engine()
+    with engine.begin() as conn:
+        amy = _add_profile(conn, "amy", "td_amy" + "0" * 26)
+        _add_step(conn, amy, (as_of - timedelta(days=1)).isoformat() + " 10:00:00", 9000)
+        _add_step(conn, amy, (as_of - timedelta(days=40)).isoformat() + " 10:00:00", 99999)  # outside 30d window
+
+    with engine.connect() as conn:
+        resp = svc.get_user_summary(conn, "amy", as_of)
+
+    assert resp.score == 9000   # day-40 excluded
+    assert resp.rank == 1

@@ -28,6 +28,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
 
+from backend.app.services.windows import cap_and_sum, rolling_bounds
 from backend.app.schemas.steps import (
     BestDayEver,
     CreateStepResponse,
@@ -49,6 +50,11 @@ from backend.app.schemas.steps import (
 # day, comfortably above any monotonic-counter glitch we've actually
 # seen out of HealthKit in testing.
 OUTLIER_CAP = 200_000
+
+# Per-day cap used by the 30-day global ranking. Each user's daily total
+# is capped at this value before summing so a single exceptional day
+# can't carry a user's entire leaderboard position.
+STEPS_DAILY_CAP = 20_000
 
 # Step counts at which the feed celebrates the user's day. Per-day,
 # per-user, per-threshold idempotent — once crossed today, the same
@@ -98,24 +104,6 @@ class UserNotFound(Exception):
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-
-def _month_bounds(month_start: date) -> tuple[date, date]:
-    """Return (first_of_month, last_of_month_inclusive). Caller passes
-    a date that is the 1st of the desired CT month; we re-anchor
-    defensively so callers can pass any in-month date if they want."""
-    first = month_start.replace(day=1)
-    if first.month == 12:
-        next_first = first.replace(year=first.year + 1, month=1)
-    else:
-        next_first = first.replace(month=first.month + 1)
-    last = next_first - timedelta(days=1)
-    return first, last
-
-
-def _iso_week_bounds(week_start: date) -> tuple[date, date]:
-    """Return (week_start, week_end_inclusive). Caller picks Monday."""
-    return week_start, week_start + timedelta(days=6)
 
 
 def _lookup_user(conn: Connection, username: str) -> tuple[int, datetime]:
@@ -264,9 +252,9 @@ def get_global_daily(conn: Connection, target_date: date) -> GlobalDailyResponse
 
 
 def get_global_weekly(
-    conn: Connection, week_start: date
+    conn: Connection, as_of: date
 ) -> GlobalWeeklyResponse:
-    start, end = _iso_week_bounds(week_start)
+    start, end = rolling_bounds(as_of, 7)
     rows = _daily_totals_in_range(conn, start, end)
 
     weekly_totals: dict[int, int] = defaultdict(int)
@@ -296,8 +284,25 @@ def get_global_weekly(
     )
 
 
+def get_global_ranking(conn: Connection, as_of: date) -> GlobalWeeklyResponse:
+    """Global board ranked by the 30-day capped score (per-CT-day totals,
+    each capped at STEPS_DAILY_CAP, summed over [as_of-29, as_of])."""
+    start, end = rolling_bounds(as_of, 30)
+    rows = _daily_totals_in_range(conn, start, end)
+    scores = cap_and_sum(rows, STEPS_DAILY_CAP)
+    usernames = _usernames_for(conn, scores.keys())
+    leaderboard = _build_leaderboard(scores, usernames)
+    return GlobalWeeklyResponse(
+        week_start=start,
+        week_end=end,
+        total_steps=sum(scores.values()),
+        leaderboard=leaderboard,
+        daily_breakdown=[],
+    )
+
+
 def get_global_summary(
-    conn: Connection, today: date, week_start: date
+    conn: Connection, as_of: date
 ) -> GlobalSummaryResponse:
     total_users = int(
         conn.execute(text("SELECT COUNT(*) FROM profiles")).scalar() or 0
@@ -319,8 +324,8 @@ def get_global_summary(
                 username=usernames[best_uid],
             )
 
-    today_leader = _top_leader(conn, today, today)
-    week_end = week_start + timedelta(days=6)
+    today_leader = _top_leader(conn, as_of, as_of)
+    week_start, week_end = rolling_bounds(as_of, 7)
     this_week_leader = _top_leader(conn, week_start, week_end)
 
     return GlobalSummaryResponse(
@@ -406,10 +411,10 @@ def get_user_daily(
 
 
 def get_user_weekly(
-    conn: Connection, username: str, week_start: date
+    conn: Connection, username: str, as_of: date
 ) -> UserWeeklyResponse:
     user_id, _join_date = _lookup_user(conn, username)
-    start, end = _iso_week_bounds(week_start)
+    start, end = rolling_bounds(as_of, 7)
     rows = _daily_totals_in_range(conn, start, end)
 
     weekly_totals: dict[int, int] = defaultdict(int)
@@ -440,18 +445,18 @@ def get_user_weekly(
 
 
 def get_user_monthly(
-    conn: Connection, username: str, month_start: date
+    conn: Connection, username: str, as_of: date
 ) -> "UserMonthlyResponse":
-    """One user's stats for a single CT calendar month.
+    """One user's stats for the rolling last-30-day window ending at as_of.
 
     Mirrors get_user_weekly: walk all per-CT-day MAX totals in the
-    month for ranking, plus per-day breakdown of just this user's
+    window for ranking, plus per-day breakdown of just this user's
     days that actually had data (no zero-filled gaps, matching the
     weekly endpoint's behavior on missing days)."""
     from backend.app.schemas.steps import UserMonthlyResponse
 
     user_id, _join_date = _lookup_user(conn, username)
-    start, end = _month_bounds(month_start)
+    start, end = rolling_bounds(as_of, 30)
     rows = _daily_totals_in_range(conn, start, end)
 
     monthly_totals: dict[int, int] = defaultdict(int)
@@ -479,34 +484,33 @@ def get_user_monthly(
 
 
 def get_user_summary(
-    conn: Connection, username: str
+    conn: Connection, username: str, as_of: date
 ) -> UserSummaryResponse:
     user_id, join_date = _lookup_user(conn, username)
 
-    # All-time aggregate: walk every row, bucket by (user, CT day).
+    # All-time best day: walk every row to find the user's personal peak.
     daily_max = _all_time_daily_max(conn)
-
-    totals_by_user: dict[int, int] = defaultdict(int)
-    user_days: list[tuple[date, int]] = []
-    for (uid, d), daily_total in daily_max.items():
-        totals_by_user[uid] += daily_total
-        if uid == user_id:
-            user_days.append((d, daily_total))
-
-    rank_all_time = _rank_of_user(totals_by_user, user_id)
+    user_days: list[tuple[date, int]] = [
+        (d, t) for (uid, d), t in daily_max.items() if uid == user_id
+    ]
 
     best_day: UserBestDay | None = None
     if user_days:
         best_d, best_t = max(user_days, key=lambda x: x[1])
         best_day = UserBestDay(date=best_d, total=best_t)
 
+    # 30-day capped score and rank.
+    start, end = rolling_bounds(as_of, 30)
+    scores = cap_and_sum(_daily_totals_in_range(conn, start, end), STEPS_DAILY_CAP)
+    score = scores.get(user_id, 0)
+    rank = _rank_of_user(scores, user_id)
+
     return UserSummaryResponse(
         username=username,
         join_date=join_date,
-        total_steps_all_time=totals_by_user.get(user_id, 0),
+        score=score,
         best_day=best_day,
-        rank_all_time=rank_all_time,
-        days_active=len(user_days),
+        rank=rank,
     )
 
 

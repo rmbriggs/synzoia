@@ -7,7 +7,7 @@ All cleaning, aggregation, and ranking lives in
 and the route layer never grows business logic.
 """
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import Optional
 from zoneinfo import ZoneInfo
 
@@ -44,11 +44,6 @@ def _today() -> date:
     return datetime.now(APP_TIMEZONE).date()
 
 
-def _iso_monday(d: date) -> date:
-    """The Monday of the ISO week containing d."""
-    return d - timedelta(days=d.weekday())
-
-
 # ---------------------------------------------------------------------------
 # Global
 # ---------------------------------------------------------------------------
@@ -65,19 +60,17 @@ def global_daily(
 
 @router.get("/weekly", response_model=GlobalWeeklyResponse)
 def global_weekly(
-    week_start: Optional[date] = Query(default=None),
+    as_of: Optional[date] = Query(default=None),
 ) -> GlobalWeeklyResponse:
-    start = week_start or _iso_monday(_today())
+    anchor = as_of or _today()
     with db.get_engine().connect() as conn:
-        return svc.get_global_weekly(conn, start)
+        return svc.get_global_weekly(conn, anchor)
 
 
 @router.get("/summary", response_model=GlobalSummaryResponse)
 def global_summary() -> GlobalSummaryResponse:
-    today = _today()
-    week_start = _iso_monday(today)
     with db.get_engine().connect() as conn:
-        return svc.get_global_summary(conn, today, week_start)
+        return svc.get_global_summary(conn, _today())
 
 
 # ---------------------------------------------------------------------------
@@ -115,12 +108,12 @@ def user_daily(
 )
 def user_weekly(
     username: str,
-    week_start: Optional[date] = Query(default=None),
+    as_of: Optional[date] = Query(default=None),
 ) -> UserWeeklyResponse:
-    start = week_start or _iso_monday(_today())
+    anchor = as_of or _today()
     try:
         with db.get_engine().connect() as conn:
-            return svc.get_user_weekly(conn, username, start)
+            return svc.get_user_weekly(conn, username, anchor)
     except svc.UserNotFound as e:
         raise _user_not_found(e.username) from e
 
@@ -131,21 +124,23 @@ def user_weekly(
 )
 def user_monthly(
     username: str,
-    month: Optional[str] = Query(default=None, regex=r"^\d{4}-\d{2}$"),
+    as_of: Optional[date] = Query(default=None),
 ) -> UserMonthlyResponse:
-    """One user's stats for a CT calendar month. `month` is YYYY-MM
-    in CT; defaults to the current CT month."""
-    if month:
-        year, mo = month.split("-")
-        target = date(int(year), int(mo), 1)
-    else:
-        today = _today()
-        target = today.replace(day=1)
+    """One user's stats for the rolling last 30 days ending `as_of` (CT today by default)."""
+    anchor = as_of or _today()
     try:
         with db.get_engine().connect() as conn:
-            return svc.get_user_monthly(conn, username, target)
+            return svc.get_user_monthly(conn, username, anchor)
     except svc.UserNotFound as e:
         raise _user_not_found(e.username) from e
+
+
+@router.get("/ranking", response_model=GlobalWeeklyResponse)
+def global_ranking(
+    as_of: Optional[date] = Query(default=None),
+) -> GlobalWeeklyResponse:
+    with db.get_engine().connect() as conn:
+        return svc.get_global_ranking(conn, as_of or _today())
 
 
 @router.get(
@@ -155,7 +150,7 @@ def user_monthly(
 def user_summary(username: str) -> UserSummaryResponse:
     try:
         with db.get_engine().connect() as conn:
-            return svc.get_user_summary(conn, username)
+            return svc.get_user_summary(conn, username, _today())
     except svc.UserNotFound as e:
         raise _user_not_found(e.username) from e
 

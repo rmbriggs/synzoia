@@ -145,10 +145,9 @@ class UserBestNight(BaseModel):
 class UserSummaryResponse(BaseModel):
     username: str
     join_date: datetime
-    total_minutes_all_time: int
+    score: int
     best_night: Optional[UserBestNight] = None
-    rank_all_time: Optional[int] = None
-    nights_logged: int
+    rank: Optional[int] = None
 
 
 # ---------------------------------------------------------------------------

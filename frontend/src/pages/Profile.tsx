@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import Button from '@/components/ui/AppButton';
 import Card from '@/components/ui/AppCard';
 import DailyBars from '@/components/ui/DailyBars';
@@ -15,6 +15,7 @@ import SleepPost from '@/components/feed/SleepPost';
 import { ApiError } from '@/api/client';
 import { type FeedPost } from '@/api/posts';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { averagePerLoggedDay } from '@/lib/stats';
 import type {
   UserDailyResponse,
   UserMonthlyResponse,
@@ -40,7 +41,7 @@ import {
 } from '@/api/userSummaryQueries';
 import {
   currentDate,
-  currentMonthYYYYMM,
+  lastNightDate,
   formatDateMedium,
   formatDuration,
   formatTimestampDate,
@@ -75,8 +76,8 @@ function StatCard({
 
 function StatStripSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-4">
-      {Array.from({ length: 4 }).map((_, i) => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      {Array.from({ length: 3 }).map((_, i) => (
         <Card key={i}>
           <div className="h-3 w-20 bg-muted/60 rounded animate-pulse" />
           <div className="h-8 w-24 bg-muted/60 rounded mt-2 animate-pulse" />
@@ -151,18 +152,14 @@ function Header({
 
 function StatStrip({ data }: { data: UserSummaryResponse }) {
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
       <StatCard
-        label="All-time steps"
-        value={formatNumber(data.total_steps_all_time)}
+        label="30-day score"
+        value={formatNumber(data.score)}
       />
       <StatCard
-        label="Days active"
-        value={formatNumber(data.days_active)}
-      />
-      <StatCard
-        label="All-time rank"
-        value={data.rank_all_time !== null ? `#${data.rank_all_time}` : '—'}
+        label="Rank"
+        value={data.rank !== null ? `#${data.rank}` : '—'}
       />
       <StatCard
         label="Best day"
@@ -174,12 +171,13 @@ function StatStrip({ data }: { data: UserSummaryResponse }) {
 }
 
 function ThisWeekCard({ data }: { data: UserWeeklyResponse }) {
+  const avg = averagePerLoggedDay(data.daily_breakdown);
   return (
     <Card>
       <div className="flex items-baseline justify-between gap-3 mb-3">
-        <h2 className="font-display text-2xl tracking-tight">This week</h2>
+        <h2 className="font-display text-2xl tracking-tight">Last 7 days</h2>
         <span className="label-mono text-muted-foreground">
-          {formatNumber(data.weekly_total)} steps ·{' '}
+          {data.weekly_total > 0 ? `avg ${formatNumber(avg)} steps` : '—'} ·{' '}
           {data.rank_this_week !== null ? `#${data.rank_this_week}` : '—'}
         </span>
       </div>
@@ -189,18 +187,19 @@ function ThisWeekCard({ data }: { data: UserWeeklyResponse }) {
 }
 
 function ThisMonthCard({ data }: { data: UserMonthlyResponse }) {
+  const avg = averagePerLoggedDay(data.daily_breakdown);
   return (
     <Card>
       <div className="flex items-baseline justify-between gap-3 mb-3">
-        <h2 className="font-display text-2xl tracking-tight">This month</h2>
+        <h2 className="font-display text-2xl tracking-tight">Last 30 days</h2>
         <span className="label-mono text-muted-foreground">
-          {formatNumber(data.monthly_total)} steps ·{' '}
+          {data.monthly_total > 0 ? `avg ${formatNumber(avg)} steps` : '—'} ·{' '}
           {data.rank_this_month !== null ? `#${data.rank_this_month}` : '—'}
         </span>
       </div>
       {data.daily_breakdown.length === 0 ? (
         <div className="label-mono text-muted-foreground italic">
-          No activity this month yet.
+          No activity in the last 30 days yet.
         </div>
       ) : (
         <DailyBars days={data.daily_breakdown} />
@@ -239,15 +238,14 @@ function formatSleepHours(minutes: number): string {
 
 function SleepStatStrip({ data }: { data: SleepSummaryResponse }) {
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
       <StatCard
-        label="All-time sleep"
-        value={formatSleepHours(data.total_minutes_all_time)}
+        label="30-day score"
+        value={formatSleepHours(data.score)}
       />
-      <StatCard label="Nights logged" value={formatNumber(data.nights_logged)} />
       <StatCard
-        label="All-time rank"
-        value={data.rank_all_time !== null ? `#${data.rank_all_time}` : '—'}
+        label="Rank"
+        value={data.rank !== null ? `#${data.rank}` : '—'}
       />
       <StatCard
         label="Best night"
@@ -280,12 +278,13 @@ function SleepTodayCard({ data }: { data: SleepDailyResponse }) {
 }
 
 function SleepThisWeekCard({ data }: { data: SleepWeeklyResponse }) {
+  const avg = averagePerLoggedDay(data.daily_breakdown);
   return (
     <Card>
       <div className="flex items-baseline justify-between gap-3 mb-3">
-        <h2 className="font-display text-2xl tracking-tight">This week</h2>
+        <h2 className="font-display text-2xl tracking-tight">Last 7 days</h2>
         <span className="label-mono text-muted-foreground">
-          {formatDuration(data.weekly_total)} ·{' '}
+          {data.weekly_total > 0 ? `avg ${formatDuration(avg)}` : '—'} ·{' '}
           {data.rank_this_week !== null ? `#${data.rank_this_week}` : '—'}
         </span>
       </div>
@@ -300,18 +299,19 @@ function SleepThisWeekCard({ data }: { data: SleepWeeklyResponse }) {
 }
 
 function SleepThisMonthCard({ data }: { data: SleepMonthlyResponse }) {
+  const avg = averagePerLoggedDay(data.daily_breakdown);
   return (
     <Card>
       <div className="flex items-baseline justify-between gap-3 mb-3">
-        <h2 className="font-display text-2xl tracking-tight">This month</h2>
+        <h2 className="font-display text-2xl tracking-tight">Last 30 days</h2>
         <span className="label-mono text-muted-foreground">
-          {formatDuration(data.monthly_total)} ·{' '}
+          {data.monthly_total > 0 ? `avg ${formatDuration(avg)}` : '—'} ·{' '}
           {data.rank_this_month !== null ? `#${data.rank_this_month}` : '—'}
         </span>
       </div>
       {data.daily_breakdown.length === 0 ? (
         <div className="label-mono text-muted-foreground italic">
-          No sleep this month yet.
+          No sleep in the last 30 days yet.
         </div>
       ) : (
         <DailyBars
@@ -331,17 +331,17 @@ const TABS = [
 
 function SummaryPanel({ username }: { username: string }) {
   const today = currentDate();
-  const month = currentMonthYYYYMM();
+  const lastNight = lastNightDate();
 
   const summary = useQuery({ ...stepsSummaryQuery(username), enabled: !!username });
   const daily = useQuery({ ...stepsDailyQuery(username, today), enabled: !!username });
-  const weekly = useQuery({ ...stepsWeeklyQuery(username), enabled: !!username });
-  const monthly = useQuery({ ...stepsMonthlyQuery(username, month), enabled: !!username });
+  const weekly = useQuery({ ...stepsWeeklyQuery(username, today), enabled: !!username });
+  const monthly = useQuery({ ...stepsMonthlyQuery(username, today), enabled: !!username });
 
   const sleepSummary = useQuery({ ...sleepSummaryQuery(username), enabled: !!username });
-  const sleepDaily = useQuery({ ...sleepDailyQuery(username, today), enabled: !!username });
-  const sleepWeekly = useQuery({ ...sleepWeeklyQuery(username), enabled: !!username });
-  const sleepMonthly = useQuery({ ...sleepMonthlyQuery(username, month), enabled: !!username });
+  const sleepDaily = useQuery({ ...sleepDailyQuery(username, lastNight), enabled: !!username });
+  const sleepWeekly = useQuery({ ...sleepWeeklyQuery(username, lastNight), enabled: !!username });
+  const sleepMonthly = useQuery({ ...sleepMonthlyQuery(username, lastNight), enabled: !!username });
 
   return (
     <div className="space-y-8">
@@ -500,33 +500,29 @@ export default function Profile() {
 
   return (
     <div className="space-y-6">
-      <Header
-        username={summary.data?.username ?? username}
-        joinDate={summary.data?.join_date}
-      />
-      {currentUser === username ? (
-        <Button variant="secondary" disabled>
-          ✓ This is you
-        </Button>
-      ) : (
-        <Button variant="primary" onClick={() => setCurrentUser(username)}>
-          Make this me
-        </Button>
-      )}
+      <div className="flex items-center justify-between gap-4">
+        <Header
+          username={summary.data?.username ?? username}
+          joinDate={summary.data?.join_date}
+        />
+        <div className="shrink-0">
+          {currentUser === username ? (
+            <Button variant="secondary" disabled>
+              ✓ This is you
+            </Button>
+          ) : (
+            <Button variant="primary" onClick={() => setCurrentUser(username)}>
+              Make this me
+            </Button>
+          )}
+        </div>
+      </div>
       <TabStrip tabs={[...TABS]} defaultKey="summary" />
       {active === 'feed' ? (
         <FeedPanel username={username} />
       ) : (
         <SummaryPanel username={username} />
       )}
-      <div className="pt-2">
-        <Link
-          to="/feed"
-          className="label-mono text-muted-foreground hover:text-foreground border-b border-transparent hover:border-foreground transition-colors pb-0.5"
-        >
-          ← back to feed
-        </Link>
-      </div>
     </div>
   );
 }

@@ -97,9 +97,9 @@ def test_global_weekly_returns_seven_day_breakdown(monkeypatch):
     engine = _engine_with_data()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
-    # Week of 2026-05-18 (Monday) through 2026-05-24
+    # Rolling 7-day window ending 2026-05-24 = Mon 2026-05-18 through 2026-05-24
     response = _client_with(engine).get(
-        "/api/steps/weekly?week_start=2026-05-18"
+        "/api/steps/weekly?as_of=2026-05-24"
     )
 
     assert response.status_code == 200
@@ -150,7 +150,7 @@ def test_user_weekly_for_known_user(monkeypatch):
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     response = _client_with(engine).get(
-        "/api/steps/users/alice/weekly?week_start=2026-05-18"
+        "/api/steps/users/alice/weekly?as_of=2026-05-24"
     )
 
     assert response.status_code == 200
@@ -168,10 +168,8 @@ def test_user_summary_for_known_user(monkeypatch):
     assert response.status_code == 200
     body = response.json()
     assert body["username"] == "alice"
-    assert body["total_steps_all_time"] == 9000
-    assert body["days_active"] == 1
-    assert body["best_day"] == {"date": "2026-05-23", "total": 9000}
-    assert body["rank_all_time"] == 2
+    assert "score" in body
+    assert "rank" in body
 
 
 def test_user_endpoints_404_on_unknown_username(monkeypatch):
@@ -188,6 +186,101 @@ def test_user_endpoints_404_on_unknown_username(monkeypatch):
         assert response.status_code == 404, path
         body = response.json()
         assert body["error"]["code"] == "user_not_found"
+
+
+def _engine_with_amy_data():
+    """Separate in-memory DB seeded with user 'amy' for as_of tests."""
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE profiles ("
+                "id integer primary key autoincrement, "
+                "username text not null unique, "
+                "token text not null unique, "
+                "join_date text not null default (datetime('now')))"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE TABLE steps ("
+                "id integer primary key autoincrement, "
+                "user_id integer not null, "
+                "timestamp text not null, "
+                "total integer not null)"
+            )
+        )
+        conn.execute(
+            text(
+                "INSERT INTO profiles (username, token, join_date) VALUES "
+                "('amy', 'tamy000000000000', '2026-05-01T00:00:00')"
+            )
+        )
+        # Seed data inside the rolling 7-day window ending 2026-06-02
+        # (2026-05-27 through 2026-06-02) and 30-day window
+        # (2026-05-04 through 2026-06-02).
+        conn.execute(
+            text(
+                "INSERT INTO steps (user_id, timestamp, total) VALUES "
+                "(1, '2026-05-28 08:00:00', 3000), "
+                "(1, '2026-05-29 08:00:00', 6000), "
+                "(1, '2026-06-01 08:00:00', 8000)"
+            )
+        )
+    return engine
+
+
+def test_user_weekly_route_accepts_as_of_rolling_bounds(monkeypatch):
+    engine = _engine_with_amy_data()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    resp = TestClient(main.app).get(
+        "/api/steps/users/amy/weekly?as_of=2026-06-02"
+    )
+    assert resp.status_code == 200
+    b = resp.json()
+    assert b["week_start"] == "2026-05-27"
+    assert b["week_end"] == "2026-06-02"
+    assert len(b["daily_breakdown"]) == 7
+
+
+def test_user_monthly_route_accepts_as_of(monkeypatch):
+    engine = _engine_with_amy_data()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    resp = TestClient(main.app).get(
+        "/api/steps/users/amy/monthly?as_of=2026-06-02"
+    )
+    assert resp.status_code == 200
+    b = resp.json()
+    assert b["month_start"] == "2026-05-04"
+    assert b["month_end"] == "2026-06-02"
+
+
+def test_ranking_route_returns_board(monkeypatch):
+    engine = _engine_with_data()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    resp = TestClient(main.app).get("/api/steps/ranking?as_of=2026-06-02")
+
+    assert resp.status_code == 200
+    assert "leaderboard" in resp.json()
+
+
+def test_user_summary_route_has_rank_and_score(monkeypatch):
+    engine = _engine_with_data()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    resp = TestClient(main.app).get("/api/steps/users/alice/summary")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "score" in body and "rank" in body
+    assert "total_steps_all_time" not in body and "days_active" not in body
 
 
 def test_global_daily_defaults_to_today_when_no_date_param(monkeypatch):

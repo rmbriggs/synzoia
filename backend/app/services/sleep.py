@@ -31,6 +31,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Connection
 
+from backend.app.services.windows import cap_and_sum, rolling_bounds
 from backend.app.schemas.sleep import (
     BestNightEver,
     DailyTotal,
@@ -52,6 +53,12 @@ from backend.app.schemas.sleep import (
 # (24h), so this only catches the legal-but-implausible range.
 # 16 hours of sleep in a single night is a clear sign of bad data.
 OUTLIER_CAP = 960  # 16 hours
+
+# Per-night cap used by the 30-day global ranking. Each user's nightly
+# duration is capped at this value before summing so a single exceptional
+# night (or bad data that slipped past OUTLIER_CAP) can't carry a user's
+# entire leaderboard position. 540 min = 9 hours.
+SLEEP_DAILY_CAP_MIN = 540
 
 # Central Time anchors all date logic — see services/steps.py for the
 # rationale (same constraint applies: iOS Shortcut sends UTC, frontend
@@ -80,23 +87,6 @@ class UserNotFound(Exception):
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-
-def _iso_week_bounds(week_start: date) -> tuple[date, date]:
-    """Return (week_start, week_end_inclusive). Caller picks Monday."""
-    return week_start, week_start + timedelta(days=6)
-
-
-def _month_bounds(month_start: date) -> tuple[date, date]:
-    """Return (first_of_month, last_of_month_inclusive). Caller passes
-    a date in the desired CT month; we re-anchor defensively."""
-    first = month_start.replace(day=1)
-    if first.month == 12:
-        next_first = first.replace(year=first.year + 1, month=1)
-    else:
-        next_first = first.replace(month=first.month + 1)
-    last = next_first - timedelta(days=1)
-    return first, last
 
 
 def _lookup_user(conn: Connection, username: str) -> tuple[int, datetime]:
@@ -212,9 +202,9 @@ def get_global_daily(conn: Connection, target_date: date) -> GlobalDailyResponse
 
 
 def get_global_weekly(
-    conn: Connection, week_start: date
+    conn: Connection, as_of: date
 ) -> GlobalWeeklyResponse:
-    start, end = _iso_week_bounds(week_start)
+    start, end = rolling_bounds(as_of, 7)
     rows = _nightly_rows_in_range(conn, start, end)
 
     weekly_totals: dict[int, int] = defaultdict(int)
@@ -243,8 +233,26 @@ def get_global_weekly(
     )
 
 
+def get_global_ranking(conn: Connection, as_of: date) -> GlobalWeeklyResponse:
+    """Global leaderboard ranked by 30-day capped score. Each night's
+    duration_min is capped at SLEEP_DAILY_CAP_MIN before summing so a
+    single exceptional night can't dominate the ranking."""
+    start, end = rolling_bounds(as_of, 30)
+    rows = _nightly_rows_in_range(conn, start, end)
+    scores = cap_and_sum(rows, SLEEP_DAILY_CAP_MIN)
+    usernames = _usernames_for(conn, scores.keys())
+    leaderboard = _build_leaderboard(scores, usernames)
+    return GlobalWeeklyResponse(
+        week_start=start,
+        week_end=end,
+        total_minutes=sum(scores.values()),
+        leaderboard=leaderboard,
+        daily_breakdown=[],
+    )
+
+
 def get_global_summary(
-    conn: Connection, today: date, week_start: date
+    conn: Connection, as_of: date
 ) -> GlobalSummaryResponse:
     total_users = int(
         conn.execute(text("SELECT COUNT(*) FROM profiles")).scalar() or 0
@@ -279,8 +287,8 @@ def get_global_summary(
                 username=usernames[best_uid],
             )
 
-    today_leader = _top_leader(conn, today, today)
-    week_end = week_start + timedelta(days=6)
+    today_leader = _top_leader(conn, as_of, as_of)
+    week_start, week_end = rolling_bounds(as_of, 7)
     this_week_leader = _top_leader(conn, week_start, week_end)
 
     return GlobalSummaryResponse(
@@ -381,10 +389,10 @@ def get_user_daily(
 
 
 def get_user_weekly(
-    conn: Connection, username: str, week_start: date
+    conn: Connection, username: str, as_of: date
 ) -> UserWeeklyResponse:
     user_id, _join_date = _lookup_user(conn, username)
-    start, end = _iso_week_bounds(week_start)
+    start, end = rolling_bounds(as_of, 7)
     rows = _nightly_rows_in_range(conn, start, end)
 
     weekly_totals: dict[int, int] = defaultdict(int)
@@ -415,10 +423,10 @@ def get_user_weekly(
 
 
 def get_user_monthly(
-    conn: Connection, username: str, month_anchor: date
+    conn: Connection, username: str, as_of: date
 ) -> UserMonthlyResponse:
     user_id, _join_date = _lookup_user(conn, username)
-    start, end = _month_bounds(month_anchor)
+    start, end = rolling_bounds(as_of, 30)
     rows = _nightly_rows_in_range(conn, start, end)
 
     monthly_totals: dict[int, int] = defaultdict(int)
@@ -450,46 +458,50 @@ def get_user_monthly(
 
 
 def get_user_summary(
-    conn: Connection, username: str
+    conn: Connection, username: str, as_of: date
 ) -> UserSummaryResponse:
+    """Per-user summary for the given anchor date.
+
+    `score` is the user's total capped duration_min over the 30-day
+    rolling window ending at `as_of`. `rank` is their dense rank among
+    all users in that same window. `best_night` is the all-time personal
+    best (uncapped, so it reflects real data).
+    """
     user_id, join_date = _lookup_user(conn, username)
 
-    rows = (
+    # All-time best night (not window-limited — it's a personal record).
+    all_rows = (
         conn.execute(
             text(
-                "SELECT user_id, night_of, duration_min FROM sleep "
-                "WHERE duration_min <= :cap"
+                "SELECT night_of, duration_min FROM sleep "
+                "WHERE user_id = :uid AND duration_min <= :cap"
             ),
-            {"cap": OUTLIER_CAP},
+            {"uid": user_id, "cap": OUTLIER_CAP},
         )
         .mappings()
         .all()
     )
-
-    totals_by_user: dict[int, int] = defaultdict(int)
-    user_nights: list[tuple[date, int]] = []
-    for r in rows:
-        uid = int(r["user_id"])
-        d = _ensure_date(r["night_of"])
-        total = int(r["duration_min"])
-        totals_by_user[uid] += total
-        if uid == user_id:
-            user_nights.append((d, total))
-
-    rank_all_time = _rank_of_user(totals_by_user, user_id)
-
     best_night: Optional[UserBestNight] = None
-    if user_nights:
-        best_d, best_t = max(user_nights, key=lambda x: x[1])
-        best_night = UserBestNight(date=best_d, total=best_t)
+    if all_rows:
+        best_row = max(all_rows, key=lambda r: int(r["duration_min"]))
+        best_night = UserBestNight(
+            date=_ensure_date(best_row["night_of"]),
+            total=int(best_row["duration_min"]),
+        )
+
+    # 30-day capped score and rank.
+    start, end = rolling_bounds(as_of, 30)
+    window_rows = _nightly_rows_in_range(conn, start, end)
+    scores = cap_and_sum(window_rows, SLEEP_DAILY_CAP_MIN)
+    score = scores.get(user_id, 0)
+    rank = _rank_of_user(scores, user_id)
 
     return UserSummaryResponse(
         username=username,
         join_date=join_date,
-        total_minutes_all_time=totals_by_user.get(user_id, 0),
+        score=score,
         best_night=best_night,
-        rank_all_time=rank_all_time,
-        nights_logged=len(user_nights),
+        rank=rank,
     )
 
 

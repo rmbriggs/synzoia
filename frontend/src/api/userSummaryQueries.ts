@@ -4,7 +4,7 @@
  * The Profile page (Summary tab) and the Users-list hover prefetch BOTH
  * use these builders, so their React Query keys are guaranteed identical
  * — otherwise a prefetch would warm cache entries the Profile page never
- * reads. `today` / `month` are passed in (from lib/dates) so the
+ * reads. `today` / `lastNight` are passed in (from lib/dates) so the
  * date-stamped keys match across call sites.
  */
 import {
@@ -39,16 +39,16 @@ export const stepsDailyQuery = (u: string, today: string) => ({
   retry: false as const,
 });
 
-export const stepsWeeklyQuery = (u: string) => ({
-  queryKey: ['steps', 'users', u, 'weekly'] as const,
-  queryFn: () => getStepsWeekly(u),
+export const stepsWeeklyQuery = (u: string, asOf: string) => ({
+  queryKey: ['steps', 'users', u, 'weekly', asOf] as const,
+  queryFn: () => getStepsWeekly(u, asOf),
   staleTime: STALE,
   retry: false as const,
 });
 
-export const stepsMonthlyQuery = (u: string, month: string) => ({
-  queryKey: ['steps', 'users', u, 'monthly', month] as const,
-  queryFn: () => getStepsMonthly(u, month),
+export const stepsMonthlyQuery = (u: string, asOf: string) => ({
+  queryKey: ['steps', 'users', u, 'monthly', asOf] as const,
+  queryFn: () => getStepsMonthly(u, asOf),
   staleTime: STALE,
   retry: false as const,
 });
@@ -67,16 +67,16 @@ export const sleepDailyQuery = (u: string, today: string) => ({
   retry: false as const,
 });
 
-export const sleepWeeklyQuery = (u: string) => ({
-  queryKey: ['sleep', 'users', u, 'weekly'] as const,
-  queryFn: () => getSleepWeekly(u),
+export const sleepWeeklyQuery = (u: string, asOf: string) => ({
+  queryKey: ['sleep', 'users', u, 'weekly', asOf] as const,
+  queryFn: () => getSleepWeekly(u, asOf),
   staleTime: STALE,
   retry: false as const,
 });
 
-export const sleepMonthlyQuery = (u: string, month: string) => ({
-  queryKey: ['sleep', 'users', u, 'monthly', month] as const,
-  queryFn: () => getSleepMonthly(u, month),
+export const sleepMonthlyQuery = (u: string, asOf: string) => ({
+  queryKey: ['sleep', 'users', u, 'monthly', asOf] as const,
+  queryFn: () => getSleepMonthly(u, asOf),
   staleTime: STALE,
   retry: false as const,
 });
@@ -98,20 +98,27 @@ export const userFeedQuery = (u: string) => ({
  * straight to `queryClient.prefetchQuery` without a cast. The individual
  * builders above keep their precise per-query types for Profile's
  * `useQuery` call sites.
+ *
+ * `today`     — CT today (YYYY-MM-DD); the as_of for ALL steps windows
+ *               (daily/weekly/monthly). Steps accrue today, so today counts.
+ * `lastNight` — CT today−1 (YYYY-MM-DD); the as_of for ALL sleep windows.
+ *               Sleep is keyed by night_of, and tonight's night_of slot only
+ *               fills after you wake tomorrow — so anchoring sleep to last
+ *               night avoids an empty future "today" bar in the morning.
  */
 export function userSummaryQueries(
   u: string,
   today: string,
-  month: string,
+  lastNight: string,
 ): FetchQueryOptions[] {
   return [
     stepsSummaryQuery(u),
     stepsDailyQuery(u, today),
-    stepsWeeklyQuery(u),
-    stepsMonthlyQuery(u, month),
+    stepsWeeklyQuery(u, today),
+    stepsMonthlyQuery(u, today),
     sleepSummaryQuery(u),
-    sleepDailyQuery(u, today),
-    sleepWeeklyQuery(u),
-    sleepMonthlyQuery(u, month),
+    sleepDailyQuery(u, lastNight),
+    sleepWeeklyQuery(u, lastNight),
+    sleepMonthlyQuery(u, lastNight),
   ];
 }

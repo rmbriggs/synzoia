@@ -50,10 +50,9 @@ export interface UserBestNight {
 export interface UserSummaryResponse {
   username: string;
   join_date: string;
-  total_minutes_all_time: number;
+  score: number;
   best_night: UserBestNight | null;
-  rank_all_time: number | null;
-  nights_logged: number;
+  rank: number | null;
 }
 
 export function getUserDaily(
@@ -68,9 +67,9 @@ export function getUserDaily(
 
 export function getUserWeekly(
   username: string,
-  weekStart?: string,
+  asOf?: string,
 ): Promise<UserWeeklyResponse> {
-  const qs = weekStart ? `?week_start=${encodeURIComponent(weekStart)}` : '';
+  const qs = asOf ? `?as_of=${encodeURIComponent(asOf)}` : '';
   return apiFetch<UserWeeklyResponse>(
     `/sleep/users/${encodeURIComponent(username)}/weekly${qs}`,
   );
@@ -78,9 +77,9 @@ export function getUserWeekly(
 
 export function getUserMonthly(
   username: string,
-  month?: string,
+  asOf?: string,
 ): Promise<UserMonthlyResponse> {
-  const qs = month ? `?month=${encodeURIComponent(month)}` : '';
+  const qs = asOf ? `?as_of=${encodeURIComponent(asOf)}` : '';
   return apiFetch<UserMonthlyResponse>(
     `/sleep/users/${encodeURIComponent(username)}/monthly${qs}`,
   );

@@ -56,10 +56,9 @@ function aliceSummary() {
   return ok({
     username: 'alice',
     join_date: '2026-05-01T00:00:00Z',
-    total_steps_all_time: 50000,
+    score: 50000,
     best_day: { date: '2026-05-20', total: 12000 },
-    rank_all_time: 1,
-    days_active: 5,
+    rank: 1,
   });
 }
 
@@ -108,10 +107,9 @@ function aliceSleepSummary() {
   return ok({
     username: 'alice',
     join_date: '2026-05-01T00:00:00Z',
-    total_minutes_all_time: 8520,
+    score: 8520,
     best_night: { date: '2026-05-20', total: 512 },
-    rank_all_time: 2,
-    nights_logged: 12,
+    rank: 2,
   });
 }
 
@@ -204,14 +202,25 @@ describe('Profile page', () => {
       expect(
         await screen.findByRole('heading', { level: 1, name: 'alice' }),
       ).toBeInTheDocument();
-      // StatStrip — all-time total
+      // StatStrip — 30-day score
       expect(await screen.findByText('50,000')).toBeInTheDocument();
       // 'Today' is steps-only (sleep card says 'Last night'); the
       // week/month headings now appear in both the Steps and Sleep
       // sections.
       expect(await screen.findByText('Today')).toBeInTheDocument();
-      expect(await screen.findAllByText('This week')).toHaveLength(2);
-      expect(await screen.findAllByText('This month')).toHaveLength(2);
+      expect(await screen.findAllByText('Last 7 days')).toHaveLength(2);
+      expect(await screen.findAllByText('Last 30 days')).toHaveLength(2);
+    });
+
+    it('renders the 3-card strip: 30-day score, rank, best', async () => {
+      globalThis.fetch = routedMock(summaryMocks());
+      renderAt('/u/alice');
+      expect(await screen.findAllByText('30-day score')).toHaveLength(2); // steps + sleep
+      expect(screen.getAllByText('Rank')).toHaveLength(2);
+      expect(screen.queryByText('All-time steps')).not.toBeInTheDocument();
+      expect(screen.queryByText('Days active')).not.toBeInTheDocument();
+      expect(screen.queryByText('All-time sleep')).not.toBeInTheDocument();
+      expect(screen.queryByText('Nights logged')).not.toBeInTheDocument();
     });
 
     it('renders the monthly card with total and rank', async () => {
@@ -219,10 +228,11 @@ describe('Profile page', () => {
 
       renderAt('/u/alice');
 
-      // Both Steps and Sleep sections render "This month" headings.
-      expect(await screen.findAllByText('This month')).toHaveLength(2);
-      // Header line: "75,000 steps · #1"
-      expect(screen.getByText(/75,000 steps · #1/)).toBeInTheDocument();
+      // Both Steps and Sleep sections render "Last 30 days" headings.
+      expect(await screen.findAllByText('Last 30 days')).toHaveLength(2);
+      // Header now shows the average per logged day, not the total:
+      // breakdown [1000,2000,3000,4000,5000] over 5 days -> avg 3,000.
+      expect(screen.getByText(/avg 3,000 steps · #1/)).toBeInTheDocument();
     });
 
     it('shows an inline message when the month has no activity yet', async () => {
@@ -242,7 +252,7 @@ describe('Profile page', () => {
       renderAt('/u/alice');
 
       expect(
-        await screen.findByText(/No activity this month yet/i),
+        await screen.findByText(/No activity in the last 30 days yet/i),
       ).toBeInTheDocument();
     });
 
@@ -251,12 +261,14 @@ describe('Profile page', () => {
 
       renderAt('/u/alice');
 
-      // Section headings (h2 text, distinct from the "All-time sleep" label)
+      // Section headings (h2 text)
       expect(await screen.findByText('Sleep')).toBeInTheDocument();
       expect(screen.getByText('Steps')).toBeInTheDocument();
-      // Best night rendered as a duration (512 min = 8h 32m)
-      expect(await screen.findByText('8h 32m')).toBeInTheDocument();
-      // All-time sleep in whole hours (8520 min = 142h)
+      // Best night rendered as a duration (512 min = 8h 32m). The same
+      // duration also appears in the week/month bar hover tooltips, so it
+      // legitimately occurs more than once.
+      expect((await screen.findAllByText('8h 32m')).length).toBeGreaterThanOrEqual(1);
+      // 30-day sleep score in whole hours (8520 min = 142h)
       expect(screen.getByText('142h')).toBeInTheDocument();
       // Sleep daily card uses a distinct heading
       expect(screen.getByText('Last night')).toBeInTheDocument();
@@ -351,10 +363,9 @@ describe('Profile page', () => {
           ok({
             username: 'lonely',
             join_date: '2026-05-23T00:00:00Z',
-            total_steps_all_time: 0,
+            score: 0,
             best_day: null,
-            rank_all_time: null,
-            days_active: 0,
+            rank: null,
           }),
         '/daily': () =>
           ok({
@@ -389,20 +400,20 @@ describe('Profile page', () => {
       // Wait for the last card (month) to render its empty-state message
       // so all four queries have settled before we count dashes.
       expect(
-        await screen.findByText(/No activity this month yet/i),
+        await screen.findByText(/No activity in the last 30 days yet/i),
       ).toBeInTheDocument();
       expect(screen.getByText('No posts yet today.')).toBeInTheDocument();
       expect(
         screen.getByRole('heading', { level: 1, name: 'lonely' }),
       ).toBeInTheDocument();
-      // Standalone "—" elements: All-time rank (StatStrip), Best day
+      // Standalone "—" elements: Rank (StatStrip), Best day
       // (StatStrip), Today's rank (TodayCard). The week/month dashes
       // are interleaved with "{n} steps · " text in a single span, so
       // getAllByText doesn't see them as standalone.
       expect(screen.getAllByText('—')).toHaveLength(3);
-      // Week and month each render "0 steps · —" — the dashes are
-      // interleaved in those spans.
-      expect(screen.getAllByText('0 steps · —')).toHaveLength(2);
+      // Week and month each render "— · —" — with no logged days there's
+      // no average to show, so the value falls back to a dash too.
+      expect(screen.getAllByText('— · —')).toHaveLength(2);
     });
   });
 

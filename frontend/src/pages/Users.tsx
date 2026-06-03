@@ -9,7 +9,7 @@ import PageHeader from '@/components/ui/PageHeader';
 import RowListSkeleton from '@/components/ui/RowListSkeleton';
 import { getProfiles, type ProfileListEntry } from '@/api/profiles';
 import { userSummaryQueries } from '@/api/userSummaryQueries';
-import { currentDate, currentMonthYYYYMM } from '@/lib/dates';
+import { currentDate, lastNightDate } from '@/lib/dates';
 
 function formatNumber(n: number): string {
   return n.toLocaleString();
@@ -31,8 +31,8 @@ function UserRow({ profile }: { profile: ProfileListEntry }) {
   // normally on click).
   const prefetch = () => {
     const today = currentDate();
-    const month = currentMonthYYYYMM();
-    for (const q of userSummaryQueries(profile.username, today, month)) {
+    const lastNight = lastNightDate();
+    for (const q of userSummaryQueries(profile.username, today, lastNight)) {
       queryClient.prefetchQuery(q);
     }
   };

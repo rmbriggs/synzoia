@@ -3,24 +3,22 @@ import { describe, expect, it } from 'vitest';
 import { userSummaryQueries, userFeedQuery } from '@/api/userSummaryQueries';
 
 describe('userSummaryQueries', () => {
-  it('produces the 8 Summary query keys Profile uses', () => {
-    const keys = userSummaryQueries('alice', '2026-06-01', '2026-06').map(
-      (q) => q.queryKey,
-    );
+  it('steps windows anchor to today; sleep windows anchor to last night (no empty future "today" bar)', () => {
+    const keys = userSummaryQueries('alice', '2026-06-02', '2026-06-01').map((q) => q.queryKey);
     expect(keys).toEqual([
       ['steps', 'users', 'alice', 'summary'],
-      ['steps', 'users', 'alice', 'daily', '2026-06-01'],
-      ['steps', 'users', 'alice', 'weekly'],
-      ['steps', 'users', 'alice', 'monthly', '2026-06'],
+      ['steps', 'users', 'alice', 'daily', '2026-06-02'],
+      ['steps', 'users', 'alice', 'weekly', '2026-06-02'],
+      ['steps', 'users', 'alice', 'monthly', '2026-06-02'],
       ['sleep', 'users', 'alice', 'summary'],
       ['sleep', 'users', 'alice', 'daily', '2026-06-01'],
-      ['sleep', 'users', 'alice', 'weekly'],
-      ['sleep', 'users', 'alice', 'monthly', '2026-06'],
+      ['sleep', 'users', 'alice', 'weekly', '2026-06-01'],
+      ['sleep', 'users', 'alice', 'monthly', '2026-06-01'],
     ]);
   });
 
   it('each query has a callable queryFn and no-retry options', () => {
-    for (const q of userSummaryQueries('bob', '2026-06-01', '2026-06')) {
+    for (const q of userSummaryQueries('bob', '2026-06-02', '2026-06-01')) {
       expect(typeof q.queryFn).toBe('function');
       expect(q.staleTime).toBe(30_000);
       expect(q.retry).toBe(false);

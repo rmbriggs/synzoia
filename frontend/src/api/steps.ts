@@ -84,10 +84,9 @@ export interface UserBestDay {
 export interface UserSummaryResponse {
   username: string;
   join_date: string;
-  total_steps_all_time: number;
+  score: number;
   best_day: UserBestDay | null;
-  rank_all_time: number | null;
-  days_active: number;
+  rank: number | null;
 }
 
 export function getGlobalDaily(date?: string): Promise<GlobalDailyResponse> {
@@ -95,10 +94,8 @@ export function getGlobalDaily(date?: string): Promise<GlobalDailyResponse> {
   return apiFetch<GlobalDailyResponse>(`/steps/daily${qs}`);
 }
 
-export function getGlobalWeekly(
-  weekStart?: string,
-): Promise<GlobalWeeklyResponse> {
-  const qs = weekStart ? `?week_start=${encodeURIComponent(weekStart)}` : '';
+export function getGlobalWeekly(asOf?: string): Promise<GlobalWeeklyResponse> {
+  const qs = asOf ? `?as_of=${encodeURIComponent(asOf)}` : '';
   return apiFetch<GlobalWeeklyResponse>(`/steps/weekly${qs}`);
 }
 
@@ -118,9 +115,9 @@ export function getUserDaily(
 
 export function getUserWeekly(
   username: string,
-  weekStart?: string,
+  asOf?: string,
 ): Promise<UserWeeklyResponse> {
-  const qs = weekStart ? `?week_start=${encodeURIComponent(weekStart)}` : '';
+  const qs = asOf ? `?as_of=${encodeURIComponent(asOf)}` : '';
   return apiFetch<UserWeeklyResponse>(
     `/steps/users/${encodeURIComponent(username)}/weekly${qs}`,
   );
@@ -128,9 +125,9 @@ export function getUserWeekly(
 
 export function getUserMonthly(
   username: string,
-  month?: string,
+  asOf?: string,
 ): Promise<UserMonthlyResponse> {
-  const qs = month ? `?month=${encodeURIComponent(month)}` : '';
+  const qs = asOf ? `?as_of=${encodeURIComponent(asOf)}` : '';
   return apiFetch<UserMonthlyResponse>(
     `/steps/users/${encodeURIComponent(username)}/monthly${qs}`,
   );
@@ -140,4 +137,9 @@ export function getUserSummary(username: string): Promise<UserSummaryResponse> {
   return apiFetch<UserSummaryResponse>(
     `/steps/users/${encodeURIComponent(username)}/summary`,
   );
+}
+
+export function getGlobalRanking(asOf?: string): Promise<GlobalWeeklyResponse> {
+  const qs = asOf ? `?as_of=${encodeURIComponent(asOf)}` : '';
+  return apiFetch<GlobalWeeklyResponse>(`/steps/ranking${qs}`);
 }

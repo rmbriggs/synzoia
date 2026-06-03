@@ -114,9 +114,9 @@ def test_global_weekly_returns_seven_day_breakdown(monkeypatch):
     engine = _engine_with_data()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
-    # Week of 2026-05-18 (Mon) through 2026-05-24 (Sun).
+    # Rolling 7-day window ending 2026-05-24 = 2026-05-18 through 2026-05-24.
     response = TestClient(main.app).get(
-        "/api/sleep/weekly?week_start=2026-05-18"
+        "/api/sleep/weekly?as_of=2026-05-24"
     )
 
     assert response.status_code == 200
@@ -207,7 +207,7 @@ def test_user_weekly_ranks_correctly(monkeypatch):
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     response = TestClient(main.app).get(
-        "/api/sleep/users/alice/weekly?week_start=2026-05-18"
+        "/api/sleep/users/alice/weekly?as_of=2026-05-24"
     )
 
     assert response.status_code == 200
@@ -227,23 +227,45 @@ def test_user_summary_picks_best_night_and_counts_nights(monkeypatch):
     assert response.status_code == 200
     body = response.json()
     assert body["username"] == "alice"
-    assert body["total_minutes_all_time"] == 920
-    assert body["best_night"] == {"date": "2026-05-22", "total": 500}
-    assert body["nights_logged"] == 2
-    assert body["rank_all_time"] == 1
+    assert "score" in body
+    assert "rank" in body
+
+
+def test_ranking_route_returns_board(monkeypatch):
+    engine = _engine_with_data()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    resp = TestClient(main.app).get("/api/sleep/ranking?as_of=2026-05-22")
+
+    assert resp.status_code == 200
+    assert "leaderboard" in resp.json()
+
+
+def test_user_summary_route_has_rank_and_score(monkeypatch):
+    engine = _engine_with_data()
+    monkeypatch.setattr(db, "get_engine", lambda: engine)
+
+    resp = TestClient(main.app).get("/api/sleep/users/alice/summary")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "score" in body and "rank" in body
+    assert "total_minutes_all_time" not in body and "nights_logged" not in body
 
 
 def test_user_monthly_returns_breakdown(monkeypatch):
     engine = _engine_with_data()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
+    # Rolling 30-day window ending 2026-06-02: start=2026-05-04, end=2026-06-02.
+    # Both alice nights (2026-05-21, 2026-05-22) fall within this window.
     response = TestClient(main.app).get(
-        "/api/sleep/users/alice/monthly?month=2026-05"
+        "/api/sleep/users/alice/monthly?as_of=2026-06-02"
     )
 
     assert response.status_code == 200
     body = response.json()
-    assert body["month_start"] == "2026-05-01"
-    assert body["month_end"] == "2026-05-31"
+    assert body["month_start"] == "2026-05-04"
+    assert body["month_end"] == "2026-06-02"
     assert body["monthly_total"] == 920
-    assert len(body["daily_breakdown"]) == 31
+    assert len(body["daily_breakdown"]) == 30

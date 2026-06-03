@@ -100,10 +100,9 @@ class UserBestDay(BaseModel):
 class UserSummaryResponse(BaseModel):
     username: str
     join_date: datetime
-    total_steps_all_time: int
+    score: int
     best_day: Optional[UserBestDay] = None
-    rank_all_time: Optional[int] = None
-    days_active: int
+    rank: Optional[int] = None
 
 
 # ---------------------------------------------------------------------------
