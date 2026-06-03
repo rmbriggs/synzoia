@@ -2,11 +2,7 @@
 
 Uses in-memory SQLite via the same _engine_with_users helper pattern as
 the rest of the steps test suite. Timestamps in fixtures are stored as
-naive UTC (matching what psycopg sees from the Shortcut).
-
-The route-level tests send a Bearer token for alice via
-`_alice_auth()` to satisfy the auth dependency added in C7 (per-user
-reads are no longer world-readable)."""
+naive UTC (matching what psycopg sees from the Shortcut)."""
 
 from datetime import date
 
@@ -15,14 +11,6 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.pool import StaticPool
 
 from backend.app.services import steps as svc
-
-
-# Matches the seeded `profiles.token` for alice in `_engine()` below.
-ALICE_TOKEN = "alice_token_aaaaaaaaaaaaaaaaa"
-
-
-def _alice_auth() -> dict:
-    return {"Authorization": f"Bearer {ALICE_TOKEN}"}
 
 
 def _engine():
@@ -163,8 +151,7 @@ def test_route_user_monthly_returns_200_and_correct_shape(monkeypatch):
 
     # Rolling 30-day window ending 2026-05-31: start=2026-05-02..end=2026-05-31
     response = TestClient(main.app).get(
-        "/api/steps/users/alice/monthly?as_of=2026-05-31",
-        headers=_alice_auth(),
+        "/api/steps/users/alice/monthly?as_of=2026-05-31"
     )
 
     assert response.status_code == 200
@@ -183,10 +170,7 @@ def test_route_user_monthly_defaults_to_current_ct_month(monkeypatch):
     engine = _engine()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
-    response = TestClient(main.app).get(
-        "/api/steps/users/alice/monthly",
-        headers=_alice_auth(),
-    )
+    response = TestClient(main.app).get("/api/steps/users/alice/monthly")
     assert response.status_code == 200
     body = response.json()
     assert body["username"] == "alice"
@@ -195,15 +179,11 @@ def test_route_user_monthly_defaults_to_current_ct_month(monkeypatch):
 
 
 def test_route_user_monthly_returns_404_for_unknown_user(monkeypatch):
-    """Auth runs before the username lookup, so this sends a valid
-    Bearer token for alice and asks for `ghost/monthly`. Expected
-    response is 404 (user not found), not 401."""
     engine = _engine()
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     response = TestClient(main.app).get(
-        "/api/steps/users/ghost/monthly?as_of=2026-05-31",
-        headers=_alice_auth(),
+        "/api/steps/users/ghost/monthly?as_of=2026-05-31"
     )
 
     assert response.status_code == 404
