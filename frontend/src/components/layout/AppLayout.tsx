@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { CircleUser, Database, Rss, Trophy, Users } from 'lucide-react';
+import { CircleUser, Database, Rss, Trophy, UserPlus, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import ThemeToggle from '@/components/layout/ThemeToggle';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -71,6 +71,12 @@ export function AppLayout() {
               <NavLink to="/db" className={topNavClass}>
                 Database
               </NavLink>
+              <NavLink
+                to="/join"
+                className="label-mono text-primary hover:text-primary/80 transition-colors"
+              >
+                Join
+              </NavLink>
             </nav>
             <Link
               to={profileTarget}
@@ -114,6 +120,11 @@ export function AppLayout() {
             to="/db"
             icon={<Database size={18} strokeWidth={1.75} />}
             label="Database"
+          />
+          <BottomNavItem
+            to="/join"
+            icon={<UserPlus size={18} strokeWidth={1.75} />}
+            label="Join"
           />
           <BottomNavItem
             to={profileTarget}
