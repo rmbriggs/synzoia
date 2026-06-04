@@ -11,10 +11,6 @@ import { getProfiles, type ProfileListEntry } from '@/api/profiles';
 import { userSummaryQueries } from '@/api/userSummaryQueries';
 import { currentDate, lastNightDate } from '@/lib/dates';
 
-function formatNumber(n: number): string {
-  return n.toLocaleString();
-}
-
 // How long the cursor must rest on a row before we warm its profile
 // queries. Long enough to skip rows the cursor merely sweeps past on the
 // way down the list, short enough that a deliberate pause still feels
@@ -71,10 +67,7 @@ function UserRow({ profile }: { profile: ProfileListEntry }) {
         className="flex items-center gap-4 py-3 hover:text-primary transition-colors"
       >
         <span className="font-medium flex-1 min-w-0 truncate">
-          {profile.username}
-        </span>
-        <span className="font-mono tabular-nums">
-          {formatNumber(profile.total_steps_all_time)}
+          @{profile.username}
         </span>
       </Link>
     </li>
@@ -107,9 +100,13 @@ export default function Users() {
       ) : (
         <Card>
           <ul>
-            {query.data.profiles.map((p) => (
-              <UserRow key={p.username} profile={p} />
-            ))}
+            {[...query.data.profiles]
+              // Oldest member first. join_date is an ISO timestamp, so a
+              // plain string compare sorts chronologically.
+              .sort((a, b) => a.join_date.localeCompare(b.join_date))
+              .map((p) => (
+                <UserRow key={p.username} profile={p} />
+              ))}
           </ul>
         </Card>
       )}

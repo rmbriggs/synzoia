@@ -182,7 +182,9 @@ def _recap_mentions(details: Any, target_username: str) -> bool:
     if not isinstance(top, list):
         return False
     return any(
-        isinstance(entry, dict) and entry.get("username") == target_username
+        isinstance(entry, dict)
+        and isinstance(entry.get("username"), str)
+        and entry["username"].lower() == target_username.lower()
         for entry in top
     )
 
@@ -200,8 +202,8 @@ def list_user_feed(
     doesn't match any profile (so the route layer can map it to 404)."""
     profile = (
         conn.execute(
-            text("SELECT id FROM profiles WHERE username = :u"),
-            {"u": username},
+            text("SELECT id FROM profiles WHERE lower(username) = :u"),
+            {"u": username.lower()},
         )
         .mappings()
         .first()
