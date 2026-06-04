@@ -96,9 +96,10 @@ describe('Feed page (post stream)', () => {
         screen.getByText(/Congrats to the top 3 · May 23, 2026/),
       ).toBeInTheDocument();
     });
-    expect(screen.getByText('🥇')).toBeInTheDocument();
-    expect(screen.getByText('🥈')).toBeInTheDocument();
-    expect(screen.getByText('🥉')).toBeInTheDocument();
+    // Ranks render as tinted medal line-icons (not emoji), labelled for a11y.
+    expect(screen.getByRole('img', { name: '1st place' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '2nd place' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '3rd place' })).toBeInTheDocument();
     expect(screen.queryByText('#1')).not.toBeInTheDocument();
     expect(screen.getByText('12,000')).toBeInTheDocument();
     expect(screen.getByText('9,500')).toBeInTheDocument();
