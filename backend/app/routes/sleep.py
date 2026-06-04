@@ -268,14 +268,14 @@ def ingest_sleep(
         # Defensive — any other ValueError from the service.
         raise AppError(422, "invalid_sleep", str(e)) from e
     except Exception as e:  # noqa: BLE001 — diagnostic surface
-        # An unexpected error in the write path. Log the exception
-        # type + a couple of structural counts so we have something
-        # actionable in Vercel logs, but do NOT log the raw payload
-        # (which contains user health-data timestamps — PII) and do
-        # not let the traceback bubble unredacted to the client.
-        # Returning an opaque 500 means the response body cannot leak
-        # internal state; the exception class + sample counts in the
-        # log line are enough to debug from.
+        # ============================================================
+        # TEMPORARY DEBUG ONLY — revert before final demo.
+        # We don't have Vercel log access right now, so the response
+        # body itself surfaces the exception class + message so we can
+        # see what's actually failing on Angela's Shortcut. This must
+        # be reverted to the opaque "Internal error" form once we've
+        # captured the real error.
+        # ============================================================
         try:
             sample_count = len((req.values or "").split("\n"))
         except Exception:
@@ -288,6 +288,10 @@ def ingest_sleep(
                 "exception_class": type(e).__name__,
             },
         )
-        raise AppError(500, "internal_error", "Internal error") from e
+        raise AppError(
+            500,
+            "debug_internal_error",
+            f"[DEBUG] {type(e).__name__}: {e}",
+        ) from e
 
 
