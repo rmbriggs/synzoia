@@ -1,0 +1,9 @@
+# Ruff config for the backend. Default rule set (E4/E7/E9 + F) — the
+# goal is catching real problems (undefined names, unused imports,
+# import-order accidents), not style debates.
+
+[lint.per-file-ignores]
+# main.py calls load_dotenv() BEFORE importing backend.app modules so
+# that a bare `uvicorn backend.app.main:app` picks up .env first.
+# That ordering is deliberate; E402 (import-not-at-top) is expected.
+"app/main.py" = ["E402"]

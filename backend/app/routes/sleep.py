@@ -20,8 +20,6 @@ from fastapi import APIRouter, Depends, Query, status
 from backend.app import db
 from backend.app.auth import require_user
 from backend.app.errors import AppError
-
-logger = logging.getLogger(__name__)
 from backend.app.schemas.sleep import (
     GlobalDailyResponse,
     GlobalSummaryResponse,
@@ -36,6 +34,8 @@ from backend.app.schemas.sleep import (
 )
 from backend.app.services import sleep as svc
 from backend.app.services import sleep_sessions as sessions_svc
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/sleep", tags=["sleep"])
 
