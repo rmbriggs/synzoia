@@ -572,10 +572,22 @@ def upsert_session(
     existing = _find_overlapping_session(conn, user_id, rec.onset, rec.wake)
 
     if existing is None:
-        row_id, _o, _w, _c = _insert_session(conn, user_id, rec)
+        row_id, onset_db, wake_db, captured_db = _insert_session(
+            conn, user_id, rec
+        )
         out = rec
         out.id = row_id
         out.user_id = user_id
+        # Normalize tz state to match the existing-row branch below, which
+        # reads back through `_coerce_db_dt` and therefore returns NAIVE
+        # datetimes. Without this, a payload that contains a mix of
+        # brand-new sessions (this branch — aware) and overlapping
+        # sessions (other branch — naive) blows up downstream when the
+        # route does `max(sessions, key=lambda s: s.wake)` with
+        # "can't compare offset-naive and offset-aware datetimes."
+        out.onset = _coerce_db_dt(onset_db)
+        out.wake = _coerce_db_dt(wake_db)
+        out.captured_at = _coerce_db_dt(captured_db)
         return out
 
     # Adopt the incoming snapshot when it is at least as complete (wake)
