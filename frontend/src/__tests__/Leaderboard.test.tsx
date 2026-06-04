@@ -39,26 +39,31 @@ function mockOnce(url: RegExp, payload: unknown, status = 200) {
 }
 
 describe('Leaderboard page', () => {
-  it('ranks by the 30-day board and keeps a Today tab', async () => {
+  it('defaults to the Today board and keeps both tabs', async () => {
     const payload = {
-      week_start: '2026-05-04',
-      week_end: '2026-06-03',
-      total_steps: 50000,
+      date: '2026-06-03',
+      total_steps: 21000,
+      participating_users: 2,
       leaderboard: [
-        { rank: 1, username: 'alice', total: 30000 },
-        { rank: 2, username: 'bob', total: 20000 },
+        { rank: 1, username: 'alice', total: 12000 },
+        { rank: 2, username: 'bob', total: 9000 },
       ],
-      daily_breakdown: [],
     };
-    globalThis.fetch = mockOnce(/\/steps\/ranking/, payload);
+    globalThis.fetch = mockOnce(/\/steps\/daily/, payload);
 
+    // No ?tab param → the page now defaults to Today, so the daily board loads.
     renderAt('/leaderboard');
 
-    expect(await screen.findByText('Last 30 days')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('@alice')).toBeInTheDocument();
+    });
+    expect(screen.getByText('21,000 total steps')).toBeInTheDocument();
+    // Both tabs remain available.
     expect(screen.getByText('Today')).toBeInTheDocument();
+    expect(screen.getByText('Last 30 days')).toBeInTheDocument();
   });
 
-  it('defaults to the ranking tab and renders the 30-day leaderboard', async () => {
+  it('renders the 30-day leaderboard when ?tab=ranking', async () => {
     const payload = {
       week_start: '2026-05-04',
       week_end: '2026-06-03',
@@ -71,7 +76,7 @@ describe('Leaderboard page', () => {
     };
     globalThis.fetch = mockOnce(/\/steps\/ranking/, payload);
 
-    renderAt('/leaderboard');
+    renderAt('/leaderboard?tab=ranking');
 
     await waitFor(() => {
       expect(screen.getByText('@alice')).toBeInTheDocument();
@@ -114,7 +119,7 @@ describe('Leaderboard page', () => {
     };
     globalThis.fetch = mockOnce(/\/steps\/ranking/, payload);
 
-    renderAt('/leaderboard');
+    renderAt('/leaderboard?tab=ranking');
 
     await waitFor(() => {
       expect(
@@ -139,16 +144,16 @@ describe('Leaderboard page', () => {
 
   it('labels the ranking tab "Last 30 days"', async () => {
     const payload = {
-      week_start: '2026-05-04',
-      week_end: '2026-06-03',
+      date: '2026-06-03',
       total_steps: 9000,
+      participating_users: 1,
       leaderboard: [{ rank: 1, username: 'alice', total: 9000 }],
-      daily_breakdown: [],
     };
-    globalThis.fetch = mockOnce(/\/steps\/ranking/, payload);
+    globalThis.fetch = mockOnce(/\/steps\/daily/, payload);
 
     renderAt('/leaderboard');
 
+    // The 30-day tab is always labelled, even though Today is the active board.
     expect(await screen.findByText('Last 30 days')).toBeInTheDocument();
     expect(screen.queryByText('Last 7 days')).not.toBeInTheDocument();
     expect(screen.queryByText('This Week')).not.toBeInTheDocument();
@@ -164,7 +169,7 @@ describe('Leaderboard page', () => {
     };
     globalThis.fetch = mockOnce(/\/steps\/ranking/, payload);
 
-    renderAt('/leaderboard');
+    renderAt('/leaderboard?tab=ranking');
 
     await waitFor(() => {
       const link = screen.getByRole('link', { name: '@alice' });
