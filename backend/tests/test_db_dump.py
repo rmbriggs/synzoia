@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 
 from backend.app import db, main
+from backend.tests.schema import make_engine
 
 
 # Bearer token corresponding to the seeded profile. Tests send this
@@ -15,26 +15,7 @@ def _sqlite_engine_with_live_schema():
     """In-memory SQLite engine matching the post-0003 + post-0004 schema
     (profiles + steps). Columns are simplified since SQLite doesn't have
     Postgres types — but SELECT * still returns the inserted shape."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    with engine.begin() as conn:
-        conn.execute(
-            text(
-                "CREATE TABLE profiles ("
-                "id integer primary key autoincrement, "
-                "username text, token text, join_date text)"
-            )
-        )
-        conn.execute(
-            text(
-                "CREATE TABLE steps ("
-                "id integer primary key autoincrement, "
-                "user_id integer, timestamp text, total integer)"
-            )
-        )
+    engine = make_engine("profiles", "steps")
     return engine
 
 
@@ -147,19 +128,7 @@ def test_db_dump_reports_per_table_errors_when_table_missing(monkeypatch):
     (the token lookup raises) — so this endpoint can't be reached. To
     exercise the per-table error branch we keep profiles but drop the
     other v1 tables."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    with engine.begin() as conn:
-        conn.execute(
-            text(
-                "CREATE TABLE profiles ("
-                "id integer primary key autoincrement, "
-                "username text, token text, join_date text)"
-            )
-        )
+    engine = make_engine("profiles")
     _seed_profile(engine)
     # `steps`, `posts`, `sleep` intentionally missing — those queries
     # will raise per-table.

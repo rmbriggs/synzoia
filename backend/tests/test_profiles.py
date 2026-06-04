@@ -10,28 +10,13 @@ SQLite is happy to round-trip as strings.
 import re
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.pool import StaticPool
 
 from backend.app import db, main
+from backend.tests.schema import make_engine
 
 
 def _profiles_engine():
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    with engine.begin() as conn:
-        conn.execute(
-            text(
-                "CREATE TABLE profiles ("
-                "id integer primary key autoincrement, "
-                "username text not null unique, "
-                "token text not null unique, "
-                "join_date text not null default (datetime('now')))"
-            )
-        )
+    engine = make_engine("profiles")
     return engine
 
 
