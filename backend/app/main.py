@@ -51,56 +51,6 @@ def health() -> dict[str, bool]:
     return {"ok": True}
 
 
-@app.get("/api/health/db")
-def health_db() -> dict:
-    """Connectivity probe: counts rows in each v1 table. Returns 200
-    even when the DB is unreachable — the response body's `ok` field
-    + `stage`/`error_*` fields tell you what went wrong without
-    needing to dig through serverless logs. Previously this raised a
-    bare 500 when the env var was missing or the connection failed,
-    which is opaque from a browser/curl.
-
-    Stages, in order:
-      1. get_engine — env var lookup + engine factory
-      2. connect    — opening a Postgres connection
-      3. query      — running SELECT count(*) per table (per-table
-                       failures recorded in tables[name] = null)"""
-    try:
-        engine = db.get_engine()
-    except Exception as e:  # noqa: BLE001 — diagnostic surface, by design
-        return {
-            "ok": False,
-            "stage": "get_engine",
-            "error_class": type(e).__name__,
-            "error_message": str(e),
-        }
-
-    try:
-        with engine.connect() as conn:
-            tables: dict[str, int | None] = {}
-            for name in _TABLES:
-                try:
-                    count = conn.execute(
-                        text(f"SELECT count(*) FROM {name}")
-                    ).scalar()
-                    tables[name] = int(count or 0)
-                except SQLAlchemyError:
-                    tables[name] = None
-    except Exception as e:  # noqa: BLE001 — diagnostic surface, by design
-        return {
-            "ok": False,
-            "stage": "connect",
-            "error_class": type(e).__name__,
-            "error_message": str(e),
-        }
-
-    return {
-        "ok": all(v is not None for v in tables.values()),
-        "stage": "query",
-        "tables": tables,
-    }
-
-
 @app.get("/api/db/dump")
 def db_dump() -> dict:
     """Dev/admin: dump up to _DUMP_LIMIT rows from each v1 table. Backs
