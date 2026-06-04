@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useSearchParams } from 'react-router-dom';
 import Button from '@/components/ui/AppButton';
 import Card from '@/components/ui/AppCard';
-import DailyBars from '@/components/ui/DailyBars';
+import RangeTrendCard from '@/components/ui/RangeTrendCard';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorCard from '@/components/ui/ErrorCard';
 import TabStrip from '@/components/ui/TabStrip';
@@ -15,17 +15,12 @@ import SleepPost from '@/components/feed/SleepPost';
 import { ApiError } from '@/api/client';
 import { type FeedPost } from '@/api/posts';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { averagePerLoggedDay } from '@/lib/stats';
 import type {
   UserDailyResponse,
-  UserMonthlyResponse,
   UserSummaryResponse,
-  UserWeeklyResponse,
 } from '@/api/steps';
 import type {
   UserDailyResponse as SleepDailyResponse,
-  UserWeeklyResponse as SleepWeeklyResponse,
-  UserMonthlyResponse as SleepMonthlyResponse,
   UserSummaryResponse as SleepSummaryResponse,
 } from '@/api/sleep';
 import {
@@ -170,44 +165,6 @@ function StatStrip({ data }: { data: UserSummaryResponse }) {
   );
 }
 
-function ThisWeekCard({ data }: { data: UserWeeklyResponse }) {
-  const avg = averagePerLoggedDay(data.daily_breakdown);
-  return (
-    <Card>
-      <div className="flex items-baseline justify-between gap-3 mb-3">
-        <h2 className="font-display text-2xl tracking-tight">Last 7 days</h2>
-        <span className="label-mono text-muted-foreground">
-          {data.weekly_total > 0 ? `avg ${formatNumber(avg)} steps` : '—'} ·{' '}
-          {data.rank_this_week !== null ? `#${data.rank_this_week}` : '—'}
-        </span>
-      </div>
-      <DailyBars days={data.daily_breakdown} cols={7} />
-    </Card>
-  );
-}
-
-function ThisMonthCard({ data }: { data: UserMonthlyResponse }) {
-  const avg = averagePerLoggedDay(data.daily_breakdown);
-  return (
-    <Card>
-      <div className="flex items-baseline justify-between gap-3 mb-3">
-        <h2 className="font-display text-2xl tracking-tight">Last 30 days</h2>
-        <span className="label-mono text-muted-foreground">
-          {data.monthly_total > 0 ? `avg ${formatNumber(avg)} steps` : '—'} ·{' '}
-          {data.rank_this_month !== null ? `#${data.rank_this_month}` : '—'}
-        </span>
-      </div>
-      {data.daily_breakdown.length === 0 ? (
-        <div className="label-mono text-muted-foreground italic">
-          No activity in the last 30 days yet.
-        </div>
-      ) : (
-        <DailyBars days={data.daily_breakdown} />
-      )}
-    </Card>
-  );
-}
-
 function TodayCard({ data }: { data: UserDailyResponse }) {
   return (
     <Card>
@@ -277,53 +234,6 @@ function SleepTodayCard({ data }: { data: SleepDailyResponse }) {
   );
 }
 
-function SleepThisWeekCard({ data }: { data: SleepWeeklyResponse }) {
-  const avg = averagePerLoggedDay(data.daily_breakdown);
-  return (
-    <Card>
-      <div className="flex items-baseline justify-between gap-3 mb-3">
-        <h2 className="font-display text-2xl tracking-tight">Last 7 days</h2>
-        <span className="label-mono text-muted-foreground">
-          {data.weekly_total > 0 ? `avg ${formatDuration(avg)}` : '—'} ·{' '}
-          {data.rank_this_week !== null ? `#${data.rank_this_week}` : '—'}
-        </span>
-      </div>
-      <DailyBars
-        days={data.daily_breakdown}
-        cols={7}
-        formatValue={formatDuration}
-        unit=""
-      />
-    </Card>
-  );
-}
-
-function SleepThisMonthCard({ data }: { data: SleepMonthlyResponse }) {
-  const avg = averagePerLoggedDay(data.daily_breakdown);
-  return (
-    <Card>
-      <div className="flex items-baseline justify-between gap-3 mb-3">
-        <h2 className="font-display text-2xl tracking-tight">Last 30 days</h2>
-        <span className="label-mono text-muted-foreground">
-          {data.monthly_total > 0 ? `avg ${formatDuration(avg)}` : '—'} ·{' '}
-          {data.rank_this_month !== null ? `#${data.rank_this_month}` : '—'}
-        </span>
-      </div>
-      {data.daily_breakdown.length === 0 ? (
-        <div className="label-mono text-muted-foreground italic">
-          No sleep in the last 30 days yet.
-        </div>
-      ) : (
-        <DailyBars
-          days={data.daily_breakdown}
-          formatValue={formatDuration}
-          unit=""
-        />
-      )}
-    </Card>
-  );
-}
-
 const TABS = [
   { key: 'summary', label: 'Summary' },
   { key: 'feed', label: 'Feed' },
@@ -363,21 +273,27 @@ function SummaryPanel({ username }: { username: string }) {
           <TodayCard data={daily.data} />
         )}
 
-        {weekly.isPending ? (
-          <CardSkeleton heightClass="h-32" />
-        ) : weekly.isError ? (
-          <ErrorView error={weekly.error} onRetry={() => weekly.refetch()} />
-        ) : (
-          <ThisWeekCard data={weekly.data} />
-        )}
-
-        {monthly.isPending ? (
-          <CardSkeleton heightClass="h-32" />
-        ) : monthly.isError ? (
-          <ErrorView error={monthly.error} onRetry={() => monthly.refetch()} />
-        ) : (
-          <ThisMonthCard data={monthly.data} />
-        )}
+        <RangeTrendCard
+          week={{
+            isPending: weekly.isPending,
+            isError: weekly.isError,
+            error: weekly.error,
+            onRetry: () => weekly.refetch(),
+            days: weekly.data?.daily_breakdown ?? [],
+            total: weekly.data?.weekly_total ?? 0,
+            rank: weekly.data?.rank_this_week ?? null,
+          }}
+          month={{
+            isPending: monthly.isPending,
+            isError: monthly.isError,
+            error: monthly.error,
+            onRetry: () => monthly.refetch(),
+            days: monthly.data?.daily_breakdown ?? [],
+            total: monthly.data?.monthly_total ?? 0,
+            rank: monthly.data?.rank_this_month ?? null,
+          }}
+          emptyMonthMessage="No activity in the last 30 days yet."
+        />
       </section>
 
       <section className="space-y-6">
@@ -404,27 +320,29 @@ function SummaryPanel({ username }: { username: string }) {
           <SleepTodayCard data={sleepDaily.data} />
         )}
 
-        {sleepWeekly.isPending ? (
-          <CardSkeleton heightClass="h-32" />
-        ) : sleepWeekly.isError ? (
-          <ErrorView
-            error={sleepWeekly.error}
-            onRetry={() => sleepWeekly.refetch()}
-          />
-        ) : (
-          <SleepThisWeekCard data={sleepWeekly.data} />
-        )}
-
-        {sleepMonthly.isPending ? (
-          <CardSkeleton heightClass="h-32" />
-        ) : sleepMonthly.isError ? (
-          <ErrorView
-            error={sleepMonthly.error}
-            onRetry={() => sleepMonthly.refetch()}
-          />
-        ) : (
-          <SleepThisMonthCard data={sleepMonthly.data} />
-        )}
+        <RangeTrendCard
+          week={{
+            isPending: sleepWeekly.isPending,
+            isError: sleepWeekly.isError,
+            error: sleepWeekly.error,
+            onRetry: () => sleepWeekly.refetch(),
+            days: sleepWeekly.data?.daily_breakdown ?? [],
+            total: sleepWeekly.data?.weekly_total ?? 0,
+            rank: sleepWeekly.data?.rank_this_week ?? null,
+          }}
+          month={{
+            isPending: sleepMonthly.isPending,
+            isError: sleepMonthly.isError,
+            error: sleepMonthly.error,
+            onRetry: () => sleepMonthly.refetch(),
+            days: sleepMonthly.data?.daily_breakdown ?? [],
+            total: sleepMonthly.data?.monthly_total ?? 0,
+            rank: sleepMonthly.data?.rank_this_month ?? null,
+          }}
+          formatValue={formatDuration}
+          unit=""
+          emptyMonthMessage="No sleep in the last 30 days yet."
+        />
       </section>
     </div>
   );

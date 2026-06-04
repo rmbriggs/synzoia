@@ -11,6 +11,8 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.pool import StaticPool
 
 from backend.app.services import steps as svc
+from backend.app import db, main
+from fastapi.testclient import TestClient
 
 
 def _engine():
@@ -131,11 +133,6 @@ def test_get_user_monthly_unknown_user_raises_user_not_found():
             svc.get_user_monthly(conn, "ghost", date(2026, 5, 1))
 
     assert excinfo.value.username == "ghost"
-
-
-from fastapi.testclient import TestClient
-
-from backend.app import db, main
 
 
 def test_route_user_monthly_returns_200_and_correct_shape(monkeypatch):

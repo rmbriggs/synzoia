@@ -16,7 +16,7 @@ server-side (token + CT-date math) and NEVER from the body.
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 # ---------------------------------------------------------------------------

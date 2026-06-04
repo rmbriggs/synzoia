@@ -56,17 +56,24 @@ def _auth() -> dict:
     return {"Authorization": f"Bearer {SEED_TOKEN}"}
 
 
-def test_db_dump_without_auth_returns_401(monkeypatch):
-    """/api/db/dump used to be world-readable, which leaked every
-    user's profiles.token (the auth credential). Now it requires a
-    Bearer token like any other write/admin endpoint."""
+def test_db_dump_is_public_with_tokens_redacted(monkeypatch):
+    """/api/db/dump is intentionally world-readable — it backs the
+    public /db transparency page, and synzoia has no website-side
+    login to gate it behind. The actual safety property is that
+    `profiles.token` (the auth credential) is stripped from the
+    response. Anonymous callers get a 200 with the dump minus tokens,
+    NOT a 401."""
     engine = _sqlite_engine_with_live_schema()
     _seed_profile(engine)
     monkeypatch.setattr(db, "get_engine", lambda: engine)
 
     response = TestClient(main.app).get("/api/db/dump")
 
-    assert response.status_code == 401
+    assert response.status_code == 200
+    body = response.json()
+    # No row in the profiles dump may include a `token` field.
+    for row in body["tables"].get("profiles", []):
+        assert "token" not in row
 
 
 def test_db_dump_returns_rows_keyed_by_table(monkeypatch):

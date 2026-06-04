@@ -4,6 +4,8 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.pool import StaticPool
 
 from backend.app.services import profiles as svc
+from backend.app import db, main
+from fastapi.testclient import TestClient
 
 
 def _engine_with(profiles, steps):
@@ -103,11 +105,6 @@ def test_list_profiles_returns_empty_list_for_empty_db():
         result = svc.list_profiles(conn)
 
     assert result.profiles == []
-
-
-from fastapi.testclient import TestClient
-
-from backend.app import db, main
 
 
 def test_route_get_profiles_returns_200_alphabetical(monkeypatch):
