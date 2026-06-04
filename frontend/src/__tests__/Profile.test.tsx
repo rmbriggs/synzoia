@@ -204,12 +204,12 @@ describe('Profile page', () => {
       ).toBeInTheDocument();
       // StatStrip — 30-day score
       expect(await screen.findByText('50,000')).toBeInTheDocument();
-      // 'Today' is steps-only (sleep card says 'Last night'); the
-      // week/month headings now appear in both the Steps and Sleep
-      // sections.
+      // 'Today' is steps-only (sleep card says 'Last night').
       expect(await screen.findByText('Today')).toBeInTheDocument();
-      expect(await screen.findAllByText('Last 7 days')).toHaveLength(2);
-      expect(await screen.findAllByText('Last 30 days')).toHaveLength(2);
+      // The week/month charts are now one toggle card per section
+      // (Steps + Sleep), each defaulting to the 7-day view.
+      expect(await screen.findAllByRole('tab', { name: '7D' })).toHaveLength(2);
+      expect(screen.getAllByRole('tab', { name: '30D' })).toHaveLength(2);
     });
 
     it('renders the 3-card strip: 30-day score, rank, best', async () => {
@@ -228,11 +228,13 @@ describe('Profile page', () => {
 
       renderAt('/u/alice');
 
-      // Both Steps and Sleep sections render "Last 30 days" headings.
-      expect(await screen.findAllByText('Last 30 days')).toHaveLength(2);
-      // Header now shows the average per logged day, not the total:
-      // breakdown [1000,2000,3000,4000,5000] over 5 days -> avg 3,000.
-      expect(screen.getByText(/avg 3,000 steps · #1/)).toBeInTheDocument();
+      // The 30-day chart lives behind the toggle; switch the Steps card
+      // (the first toggle card in the DOM) to its 30-day view.
+      const [stepsThirtyTab] = await screen.findAllByRole('tab', { name: '30D' });
+      fireEvent.click(stepsThirtyTab);
+
+      // Monthly breakdown [1000,2000,3000,4000,5000] over 5 days -> avg 3,000.
+      expect(await screen.findByText(/avg 3,000 steps · #1/)).toBeInTheDocument();
     });
 
     it('shows an inline message when the month has no activity yet', async () => {
@@ -250,6 +252,9 @@ describe('Profile page', () => {
       });
 
       renderAt('/u/alice');
+
+      const [stepsThirtyTab] = await screen.findAllByRole('tab', { name: '30D' });
+      fireEvent.click(stepsThirtyTab);
 
       expect(
         await screen.findByText(/No activity in the last 30 days yet/i),
@@ -397,23 +402,27 @@ describe('Profile page', () => {
 
       renderAt('/u/lonely');
 
-      // Wait for the last card (month) to render its empty-state message
-      // so all four queries have settled before we count dashes.
-      expect(
-        await screen.findByText(/No activity in the last 30 days yet/i),
-      ).toBeInTheDocument();
-      expect(screen.getByText('No posts yet today.')).toBeInTheDocument();
+      // Wait for the steps Today card (always rendered in the default
+      // 7-day view) so the queries have settled.
+      expect(await screen.findByText('No posts yet today.')).toBeInTheDocument();
       expect(
         screen.getByRole('heading', { level: 1, name: '@lonely' }),
       ).toBeInTheDocument();
-      // Standalone "—" elements: Rank (StatStrip), Best day
-      // (StatStrip), Today's rank (TodayCard). The week/month dashes
-      // are interleaved with "{n} steps · " text in a single span, so
-      // getAllByText doesn't see them as standalone.
+      // Standalone "—": Rank (StatStrip), Best day (StatStrip), Today's
+      // rank (TodayCard).
       expect(screen.getAllByText('—')).toHaveLength(3);
-      // Week and month each render "— · —" — with no logged days there's
-      // no average to show, so the value falls back to a dash too.
-      expect(screen.getAllByText('— · —')).toHaveLength(2);
+      // The Steps week chart has no logged days, so its meta reads "— · —".
+      // (The Sleep card has real data here, so it isn't dashed.)
+      expect(screen.getAllByText('— · —')).toHaveLength(1);
+
+      // Switching the Steps card to 30 days surfaces the empty-state
+      // message, and that view's meta is dashed too.
+      const [stepsThirtyTab] = screen.getAllByRole('tab', { name: '30D' });
+      fireEvent.click(stepsThirtyTab);
+      expect(
+        await screen.findByText(/No activity in the last 30 days yet/i),
+      ).toBeInTheDocument();
+      expect(screen.getAllByText('— · —')).toHaveLength(1);
     });
   });
 
