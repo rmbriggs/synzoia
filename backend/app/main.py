@@ -1,7 +1,7 @@
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -15,7 +15,6 @@ from sqlalchemy.exc import SQLAlchemyError
 load_dotenv()
 
 from backend.app import db
-from backend.app.auth import require_user
 from backend.app.errors import register_error_handlers
 from backend.app.routes import cron as cron_routes
 from backend.app.routes import posts as posts_routes

@@ -16,8 +16,10 @@ export default function ConnectionStatus() {
     staleTime: 60_000,
   });
 
-  let state: Tone = 'ok';
-  let label = 'checking…';
+  // Declared unassigned: every branch below sets both, and an initial
+  // value would be dead (flagged by eslint no-useless-assignment).
+  let state: Tone;
+  let label: string;
 
   if (isLoading) {
     state = 'warn';
