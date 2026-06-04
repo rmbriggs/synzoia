@@ -494,3 +494,62 @@ def test_missing_offset_in_timestamp_returns_422(monkeypatch):
 
     assert response.status_code == 422
     assert _count_sleep(engine) == 0
+
+
+# ----- Ownership clause (defense-in-depth) ---------------------------------
+
+
+def test_update_session_scoped_to_owner():
+    """_update_session must carry an ownership clause (AND user_id = :uid)
+    so it can never rewrite another user's row, even if a future refactor
+    passes it an id that wasn't derived from a user-scoped lookup.
+
+    Per Lecture 9.2: every UPDATE/DELETE that touches a row by id needs
+    the ownership check IN the query, not next to it."""
+    from datetime import date, datetime, timezone
+
+    from backend.app.services import sleep_sessions as sessions_svc
+
+    def _record(total_asleep_min: int) -> sessions_svc.SessionRecord:
+        return sessions_svc.SessionRecord(
+            onset=datetime(2026, 6, 1, 3, 0, tzinfo=timezone.utc),
+            wake=datetime(2026, 6, 1, 11, 0, tzinfo=timezone.utc),
+            sleep_date=date(2026, 6, 1),
+            session_type="night",
+            status="final",
+            review_flag=False,
+            total_asleep_min=total_asleep_min,
+            time_in_bed_min=480,
+            awake_min=20,
+            core_min=300,
+            deep_min=90,
+            rem_min=70,
+            wakeups=1,
+            efficiency=0.96,
+            captured_at=datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc),
+        )
+
+    engine = _engine_with_users()
+
+    # Alice (user 1) owns a session with 460 asleep minutes.
+    with engine.begin() as conn:
+        stored = sessions_svc.upsert_session(conn, user_id=1, rec=_record(460))
+
+    # An update targeting Alice's row id but scoped to Bob (user 2)
+    # must not change the row.
+    with engine.begin() as conn:
+        sessions_svc._update_session(
+            conn, stored.id, _record(1), user_id=2
+        )
+
+    with engine.connect() as conn:
+        row = (
+            conn.execute(
+                text("SELECT user_id, duration_min FROM sleep WHERE id = :id"),
+                {"id": stored.id},
+            )
+            .mappings()
+            .one()
+        )
+    assert row["user_id"] == 1
+    assert row["duration_min"] == 460  # untouched by the cross-user update

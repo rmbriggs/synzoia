@@ -515,11 +515,14 @@ def _insert_session(
 
 
 def _update_session(
-    conn: Connection, row_id: int, rec: SessionRecord
+    conn: Connection, row_id: int, rec: SessionRecord, user_id: int
 ) -> None:
     onset_naive = _aware_to_naive_utc(rec.onset)
     wake_naive = _aware_to_naive_utc(rec.wake)
     captured_naive = _aware_to_naive_utc(rec.captured_at)
+    # Ownership clause: the row id always comes from a user-scoped lookup
+    # today, but the AND keeps this safe if a future caller passes an id
+    # from anywhere else. Authorization lives IN the query, not next to it.
     conn.execute(
         text(
             "UPDATE sleep SET "
@@ -537,10 +540,11 @@ def _update_session(
             "  captured_at = :captured, "
             "  onset_at = :onset, "
             "  sleep_date = :sleep_date "
-            "WHERE id = :id"
+            "WHERE id = :id AND user_id = :uid"
         ),
         {
             "id": row_id,
+            "uid": user_id,
             "bedtime": onset_naive,
             "wake": wake_naive,
             "dur_min": rec.total_asleep_min,
@@ -596,17 +600,20 @@ def upsert_session(
         incoming_wake == existing_wake
         and incoming_captured >= existing_captured
     ):
-        _update_session(conn, int(existing["id"]), rec)
+        _update_session(conn, int(existing["id"]), rec, user_id)
     else:
         # Older or less-complete snapshot — only bump captured_at, and
         # never below the current value or in a way that touches status.
+        # Same ownership clause as _update_session.
         conn.execute(
             text(
                 "UPDATE sleep SET captured_at = :captured "
-                "WHERE id = :id AND captured_at < :captured"
+                "WHERE id = :id AND user_id = :uid "
+                "AND captured_at < :captured"
             ),
             {
                 "id": int(existing["id"]),
+                "uid": user_id,
                 "captured": incoming_captured,
             },
         )
