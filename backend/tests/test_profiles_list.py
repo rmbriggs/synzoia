@@ -3,6 +3,9 @@
 from sqlalchemy import text
 
 from backend.app.services import profiles as svc
+from backend.app import db, main
+from backend.tests.schema import make_engine
+from fastapi.testclient import TestClient
 
 
 def _engine_with(profiles, steps):
@@ -80,12 +83,6 @@ def test_list_profiles_returns_empty_list_for_empty_db():
         result = svc.list_profiles(conn)
 
     assert result.profiles == []
-
-
-from fastapi.testclient import TestClient
-
-from backend.app import db, main
-from backend.tests.schema import make_engine
 
 
 def test_route_get_profiles_returns_200_alphabetical(monkeypatch):

@@ -30,6 +30,9 @@ jobs:
       - name: install
         run: pip install -r requirements-dev.txt
 
+      - name: ruff
+        run: ruff check .
+
       - name: pytest
         run: pytest tests/ -v
 
@@ -50,6 +53,9 @@ jobs:
 
       - name: install
         run: npm ci
+
+      - name: lint
+        run: npm run lint
 
       - name: typecheck
         run: npm run typecheck

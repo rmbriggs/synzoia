@@ -5,7 +5,6 @@ for yesterday's top 3, idempotency when called twice, the no-data
 short-circuit, and the 401 path for missing/wrong auth."""
 
 import json
-import os
 
 from fastapi.testclient import TestClient
 from sqlalchemy import text

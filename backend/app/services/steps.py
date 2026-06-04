@@ -42,6 +42,7 @@ from backend.app.schemas.steps import (
     SummaryLeader,
     UserBestDay,
     UserDailyResponse,
+    UserMonthlyResponse,
     UserSummaryResponse,
     UserWeeklyResponse,
 )
@@ -447,15 +448,13 @@ def get_user_weekly(
 
 def get_user_monthly(
     conn: Connection, username: str, as_of: date
-) -> "UserMonthlyResponse":
+) -> UserMonthlyResponse:
     """One user's stats for the rolling last-30-day window ending at as_of.
 
     Mirrors get_user_weekly: walk all per-CT-day MAX totals in the
     window for ranking, plus per-day breakdown of just this user's
     days that actually had data (no zero-filled gaps, matching the
     weekly endpoint's behavior on missing days)."""
-    from backend.app.schemas.steps import UserMonthlyResponse
-
     user_id, _join_date = _lookup_user(conn, username)
     start, end = rolling_bounds(as_of, 30)
     rows = _daily_totals_in_range(conn, start, end)

@@ -33,9 +33,9 @@ Per CLAUDE.md:
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
-from datetime import date, datetime, time, timedelta, timezone
-from typing import Iterable, Optional
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta, timezone
+from typing import Optional
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import text
@@ -338,7 +338,14 @@ def build_session_record(
         return None  # sanity guard — gap threshold failed to split
 
     onset = _onset_of(samples)
-    wake = samples[-1].end
+    # Wake time = the latest END across all samples, NOT the end of the
+    # last-sorted-by-start sample. Apple Health sometimes appends a
+    # trailing 0-duration "Awake" marker (start == end) at the very end
+    # of a session, which would otherwise win the sort tiebreaker and
+    # make us report a wake time several minutes earlier than the
+    # actual last sleep stage end. Apple Health's own UI skips that
+    # marker; we now do the same.
+    wake = max(s.end for s in samples)
     time_in_bed_sec = max(0, int((wake - onset).total_seconds()))
 
     core_sec = sum(s.dur_sec for s in samples if s.value == STAGE_CORE)
@@ -515,11 +522,14 @@ def _insert_session(
 
 
 def _update_session(
-    conn: Connection, row_id: int, rec: SessionRecord
+    conn: Connection, row_id: int, rec: SessionRecord, user_id: int
 ) -> None:
     onset_naive = _aware_to_naive_utc(rec.onset)
     wake_naive = _aware_to_naive_utc(rec.wake)
     captured_naive = _aware_to_naive_utc(rec.captured_at)
+    # Ownership clause: the row id always comes from a user-scoped lookup
+    # today, but the AND keeps this safe if a future caller passes an id
+    # from anywhere else. Authorization lives IN the query, not next to it.
     conn.execute(
         text(
             "UPDATE sleep SET "
@@ -537,10 +547,11 @@ def _update_session(
             "  captured_at = :captured, "
             "  onset_at = :onset, "
             "  sleep_date = :sleep_date "
-            "WHERE id = :id"
+            "WHERE id = :id AND user_id = :uid"
         ),
         {
             "id": row_id,
+            "uid": user_id,
             "bedtime": onset_naive,
             "wake": wake_naive,
             "dur_min": rec.total_asleep_min,
@@ -572,10 +583,22 @@ def upsert_session(
     existing = _find_overlapping_session(conn, user_id, rec.onset, rec.wake)
 
     if existing is None:
-        row_id, _o, _w, _c = _insert_session(conn, user_id, rec)
+        row_id, onset_db, wake_db, captured_db = _insert_session(
+            conn, user_id, rec
+        )
         out = rec
         out.id = row_id
         out.user_id = user_id
+        # Normalize tz state to match the existing-row branch below, which
+        # reads back through `_coerce_db_dt` and therefore returns NAIVE
+        # datetimes. Without this, a payload that contains a mix of
+        # brand-new sessions (this branch — aware) and overlapping
+        # sessions (other branch — naive) blows up downstream when the
+        # route does `max(sessions, key=lambda s: s.wake)` with
+        # "can't compare offset-naive and offset-aware datetimes."
+        out.onset = _coerce_db_dt(onset_db)
+        out.wake = _coerce_db_dt(wake_db)
+        out.captured_at = _coerce_db_dt(captured_db)
         return out
 
     # Adopt the incoming snapshot when it is at least as complete (wake)
@@ -596,17 +619,20 @@ def upsert_session(
         incoming_wake == existing_wake
         and incoming_captured >= existing_captured
     ):
-        _update_session(conn, int(existing["id"]), rec)
+        _update_session(conn, int(existing["id"]), rec, user_id)
     else:
         # Older or less-complete snapshot — only bump captured_at, and
         # never below the current value or in a way that touches status.
+        # Same ownership clause as _update_session.
         conn.execute(
             text(
                 "UPDATE sleep SET captured_at = :captured "
-                "WHERE id = :id AND captured_at < :captured"
+                "WHERE id = :id AND user_id = :uid "
+                "AND captured_at < :captured"
             ),
             {
                 "id": int(existing["id"]),
+                "uid": user_id,
                 "captured": incoming_captured,
             },
         )
