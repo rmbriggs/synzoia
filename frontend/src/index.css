@@ -328,3 +328,25 @@
     animation: none;
   }
 }
+
+/* Range-toggle chart transitions. Switching to the 30-day view "zooms out"
+   (starts slightly enlarged and settles) to feel like pulling back for the
+   bigger picture; the 7-day view "zooms in" (starts slightly shrunk) to feel
+   like focusing on the week. The chart wrapper is keyed by range so React
+   remounts it, replaying the animation on every toggle. */
+@keyframes zoom-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes zoom-out {
+  from { opacity: 0; transform: scale(1.06); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.zoom-in  { animation: zoom-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.zoom-out { animation: zoom-out 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .zoom-in, .zoom-out { animation: none; }
+}
