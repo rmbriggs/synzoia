@@ -145,7 +145,7 @@ function RankingPanel() {
 
 export default function Leaderboard() {
   const [params] = useSearchParams();
-  const active = params.get('tab') ?? 'ranking';
+  const active = params.get('tab') ?? 'today';
 
   return (
     <div className="space-y-6">
@@ -153,7 +153,7 @@ export default function Leaderboard() {
         title="Leaderboard"
         description="Step rankings across all members."
       />
-      <TabStrip tabs={TABS} defaultKey="ranking" />
+      <TabStrip tabs={TABS} defaultKey="today" />
       {active === 'today' ? <TodayPanel /> : <RankingPanel />}
     </div>
   );

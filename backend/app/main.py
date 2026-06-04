@@ -1,7 +1,7 @@
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -15,7 +15,6 @@ from sqlalchemy.exc import SQLAlchemyError
 load_dotenv()
 
 from backend.app import db
-from backend.app.auth import require_user
 from backend.app.errors import register_error_handlers
 from backend.app.routes import cron as cron_routes
 from backend.app.routes import posts as posts_routes
@@ -53,20 +52,20 @@ def health() -> dict[str, bool]:
 
 
 @app.get("/api/db/dump")
-def db_dump(user_id: int = Depends(require_user)) -> dict:
+def db_dump() -> dict:
     """Dev/admin: dump up to _DUMP_LIMIT rows from each v1 table. Backs
-    the /db page used for demos and debugging.
+    the public /db transparency page used for demos.
 
-    Hardened against credential leakage:
-      - Requires a valid Bearer token (anonymous requests get 401).
-      - Strips `_REDACTED_COLUMNS` per table from the response — most
-        importantly `profiles.token`, which IS the auth credential and
-        would otherwise let any logged-in user impersonate everyone
-        else.
+    Hardened against credential leakage by stripping `_REDACTED_COLUMNS`
+    per table — most importantly `profiles.token`, which IS the auth
+    credential. With tokens redacted, the dump contains only data the
+    user already sees in the feed/leaderboard, so this endpoint is
+    intentionally public (the /db page is part of synzoia's "everything
+    is visible" transparency story and the site has no website-side
+    login flow to gate it behind).
 
     Per-table query failures are reported in `errors[name]`; the table's
     row list is left empty rather than erroring the whole response."""
-    del user_id  # auth-only; identity not used inside the handler
     engine = db.get_engine()
     tables: dict[str, list[dict[str, Any]]] = {}
     errors: dict[str, str | None] = {}

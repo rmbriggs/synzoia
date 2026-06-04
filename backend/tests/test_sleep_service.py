@@ -202,7 +202,6 @@ def test_sleep_global_ranking_caps_and_ranks():
     """get_global_ranking caps duration_min at SLEEP_DAILY_CAP_MIN (540)
     before ranking. User with a capped night should rank below a user with
     a smaller, legitimate night if the cap brings them equal or below."""
-    from datetime import timedelta
 
     as_of = date(2026, 6, 1)
     engine = _engine()
