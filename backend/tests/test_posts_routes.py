@@ -6,10 +6,10 @@ no-spoofing-via-body guard.
 """
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 
 from backend.app import db, main
+from backend.tests.schema import make_engine
 
 
 ALICE_TOKEN = "alice_token_aaaaaaaaaaaaaaaaaaaaaaaa"
@@ -17,33 +17,8 @@ BOB_TOKEN = "bob_token_bbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
 
 def _engine_with_users(seed_posts: bool = False):
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+    engine = make_engine("profiles", "posts")
     with engine.begin() as conn:
-        conn.execute(
-            text(
-                "CREATE TABLE profiles ("
-                "id integer primary key autoincrement, "
-                "username text not null unique, "
-                "token text not null unique, "
-                "join_date text not null default (datetime('now')))"
-            )
-        )
-        conn.execute(
-            text(
-                "CREATE TABLE posts ("
-                "id integer primary key autoincrement, "
-                "user_id integer not null, "
-                "username text not null, "
-                "type text not null, "
-                "timestamp text not null, "
-                "details text, "
-                "body text)"
-            )
-        )
         conn.execute(
             text(
                 "INSERT INTO profiles (username, token, join_date) "

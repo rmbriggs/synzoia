@@ -7,45 +7,15 @@ expose.
 """
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 
 from backend.app import db, main
+from backend.tests.schema import make_engine
 
 
 def _engine_with_data():
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+    engine = make_engine("profiles", "sleep")
     with engine.begin() as conn:
-        conn.execute(
-            text(
-                "CREATE TABLE profiles ("
-                "id integer primary key autoincrement, "
-                "username text not null unique, "
-                "token text not null unique, "
-                "join_date text not null default (datetime('now')))"
-            )
-        )
-        conn.execute(
-            text(
-                "CREATE TABLE sleep ("
-                "id integer primary key autoincrement, "
-                "user_id integer not null, "
-                "bedtime text not null, "
-                "wake_time text not null, "
-                "duration_min integer not null, "
-                "rem_minutes integer, "
-                "core_minutes integer, "
-                "deep_minutes integer, "
-                "awake_minutes integer, "
-                "night_of text not null, "
-                "created_at text not null default (datetime('now')), "
-                "unique (user_id, night_of))"
-            )
-        )
         conn.execute(
             text(
                 "INSERT INTO profiles (username, token, join_date) VALUES "
@@ -57,19 +27,24 @@ def _engine_with_data():
         # alice slept the night of 2026-05-21 → 420 min
         # alice slept the night of 2026-05-22 → 500 min
         # bob   slept the night of 2026-05-22 → 480 min
+        # onset_at/sleep_date are NOT NULL in the real schema (0009);
+        # filled like 0009's backfill: from bedtime / night_of.
         conn.execute(
             text(
                 "INSERT INTO sleep ("
                 "user_id, bedtime, wake_time, duration_min, "
                 "rem_minutes, core_minutes, deep_minutes, awake_minutes, "
-                "night_of"
+                "night_of, onset_at, sleep_date"
                 ") VALUES "
                 "(1, '2026-05-22 03:00:00', '2026-05-22 10:00:00', 420, "
-                " 80, 220, 80, 40, '2026-05-21'), "
+                " 80, 220, 80, 40, '2026-05-21', "
+                " '2026-05-22 03:00:00', '2026-05-21'), "
                 "(1, '2026-05-23 03:00:00', '2026-05-23 11:00:00', 500, "
-                " 95, 250, 95, 40, '2026-05-22'), "
+                " 95, 250, 95, 40, '2026-05-22', "
+                " '2026-05-23 03:00:00', '2026-05-22'), "
                 "(2, '2026-05-23 02:00:00', '2026-05-23 10:00:00', 480, "
-                " 90, 240, 90, 40, '2026-05-22')"
+                " 90, 240, 90, 40, '2026-05-22', "
+                " '2026-05-23 02:00:00', '2026-05-22')"
             )
         )
     return engine

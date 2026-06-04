@@ -5,37 +5,15 @@ exercises the FastAPI wiring: query params, response shape, the 404
 contract for unknown users."""
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 
 from backend.app import db, main
+from backend.tests.schema import make_engine
 
 
 def _engine_with_data():
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+    engine = make_engine("profiles", "steps")
     with engine.begin() as conn:
-        conn.execute(
-            text(
-                "CREATE TABLE profiles ("
-                "id integer primary key autoincrement, "
-                "username text not null unique, "
-                "token text not null unique, "
-                "join_date text not null default (datetime('now')))"
-            )
-        )
-        conn.execute(
-            text(
-                "CREATE TABLE steps ("
-                "id integer primary key autoincrement, "
-                "user_id integer not null, "
-                "timestamp text not null, "
-                "total integer not null)"
-            )
-        )
         conn.execute(
             text(
                 "INSERT INTO profiles (username, token, join_date) VALUES "
@@ -202,30 +180,8 @@ def test_user_endpoints_404_on_unknown_username(monkeypatch):
 
 def _engine_with_amy_data():
     """Separate in-memory DB seeded with user 'amy' for as_of tests."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+    engine = make_engine("profiles", "steps")
     with engine.begin() as conn:
-        conn.execute(
-            text(
-                "CREATE TABLE profiles ("
-                "id integer primary key autoincrement, "
-                "username text not null unique, "
-                "token text not null unique, "
-                "join_date text not null default (datetime('now')))"
-            )
-        )
-        conn.execute(
-            text(
-                "CREATE TABLE steps ("
-                "id integer primary key autoincrement, "
-                "user_id integer not null, "
-                "timestamp text not null, "
-                "total integer not null)"
-            )
-        )
         conn.execute(
             text(
                 "INSERT INTO profiles (username, token, join_date) VALUES "

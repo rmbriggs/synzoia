@@ -10,44 +10,15 @@ sleep rows are keyed by `night_of` (a date) with value `duration_min`.
 from datetime import date
 
 import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 
 from backend.app.services import sleep as svc
+from backend.tests.schema import make_engine
 from backend.app.services.sleep import UserNotFound
 
 
 def _engine():
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    with engine.begin() as conn:
-        conn.execute(
-            text(
-                "CREATE TABLE profiles ("
-                "id integer primary key autoincrement, "
-                "username text not null unique, "
-                "token text not null unique, "
-                "join_date text not null default (datetime('now')))"
-            )
-        )
-        conn.execute(
-            text(
-                "CREATE TABLE sleep ("
-                "id integer primary key autoincrement, "
-                "user_id integer not null, "
-                "bedtime text not null, "
-                "wake_time text not null, "
-                "duration_min integer not null, "
-                "rem_minutes integer, "
-                "core_minutes integer, "
-                "deep_minutes integer, "
-                "awake_minutes integer, "
-                "night_of text not null)"
-            )
-        )
+    engine = make_engine("profiles", "sleep")
     return engine
 
 
@@ -65,12 +36,15 @@ def _add_profile(conn, username: str, token: str) -> int:
 
 def _add_sleep(conn, user_id: int, night_of: str, duration_min: int) -> None:
     """Insert one sleep row. bedtime/wake_time are synthetic stubs — the
-    read aggregations only query night_of and duration_min."""
+    read aggregations only query night_of and duration_min. onset_at and
+    sleep_date are NOT NULL in the real schema (migration 0009), so fill
+    them the same way 0009's backfill did: from bedtime / night_of."""
     conn.execute(
         text(
             "INSERT INTO sleep "
-            "(user_id, bedtime, wake_time, duration_min, night_of) "
-            "VALUES (:u, :b, :w, :d, :n)"
+            "(user_id, bedtime, wake_time, duration_min, night_of, "
+            " onset_at, sleep_date) "
+            "VALUES (:u, :b, :w, :d, :n, :b, :n)"
         ),
         {
             "u": user_id,

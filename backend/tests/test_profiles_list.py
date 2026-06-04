@@ -1,36 +1,13 @@
 """Tests for the /api/profiles list endpoint and underlying service."""
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 
 from backend.app.services import profiles as svc
 
 
 def _engine_with(profiles, steps):
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+    engine = make_engine("profiles", "steps")
     with engine.begin() as conn:
-        conn.execute(
-            text(
-                "CREATE TABLE profiles ("
-                "id integer primary key autoincrement, "
-                "username text not null unique, "
-                "token text not null unique, "
-                "join_date text not null default (datetime('now')))"
-            )
-        )
-        conn.execute(
-            text(
-                "CREATE TABLE steps ("
-                "id integer primary key autoincrement, "
-                "user_id integer not null, "
-                "timestamp text not null, "
-                "total integer not null)"
-            )
-        )
         for p in profiles:
             conn.execute(
                 text(
@@ -108,6 +85,7 @@ def test_list_profiles_returns_empty_list_for_empty_db():
 from fastapi.testclient import TestClient
 
 from backend.app import db, main
+from backend.tests.schema import make_engine
 
 
 def test_route_get_profiles_returns_200_alphabetical(monkeypatch):

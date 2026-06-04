@@ -7,38 +7,15 @@ FastAPI involved; this is just SQL + Python aggregation."""
 from datetime import date
 
 import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
 
 from backend.app.services import steps as svc
+from backend.tests.schema import make_engine
 from backend.app.services.steps import OUTLIER_CAP, UserNotFound
 
 
 def _engine():
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    with engine.begin() as conn:
-        conn.execute(
-            text(
-                "CREATE TABLE profiles ("
-                "id integer primary key autoincrement, "
-                "username text not null unique, "
-                "token text not null unique, "
-                "join_date text not null default (datetime('now')))"
-            )
-        )
-        conn.execute(
-            text(
-                "CREATE TABLE steps ("
-                "id integer primary key autoincrement, "
-                "user_id integer not null, "
-                "timestamp text not null, "
-                "total integer not null)"
-            )
-        )
+    engine = make_engine("profiles", "steps")
     return engine
 
 
