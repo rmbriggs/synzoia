@@ -338,7 +338,14 @@ def build_session_record(
         return None  # sanity guard — gap threshold failed to split
 
     onset = _onset_of(samples)
-    wake = samples[-1].end
+    # Wake time = the latest END across all samples, NOT the end of the
+    # last-sorted-by-start sample. Apple Health sometimes appends a
+    # trailing 0-duration "Awake" marker (start == end) at the very end
+    # of a session, which would otherwise win the sort tiebreaker and
+    # make us report a wake time several minutes earlier than the
+    # actual last sleep stage end. Apple Health's own UI skips that
+    # marker; we now do the same.
+    wake = max(s.end for s in samples)
     time_in_bed_sec = max(0, int((wake - onset).total_seconds()))
 
     core_sec = sum(s.dur_sec for s in samples if s.value == STAGE_CORE)
