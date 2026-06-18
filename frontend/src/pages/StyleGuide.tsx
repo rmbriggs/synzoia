@@ -7,6 +7,12 @@ import EmptyState from '@/components/ui/EmptyState';
 import TabStrip from '@/components/ui/TabStrip';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import ErrorCard from '@/components/ui/ErrorCard';
+import DailyBars from '@/components/ui/DailyBars';
 import type { ReactNode } from 'react';
 
 const colorTokens = [
@@ -145,7 +151,7 @@ export default function StyleGuide() {
                 Aa
               </div>
               <div className="mt-4 space-y-1">
-                <div className="font-display text-xl">Lora</div>
+                <div className="font-display text-xl">Cormorant Garamond</div>
                 <div className="label-mono text-muted-foreground">
                   Serif · 400 / 500 / 600 / italic
                 </div>
@@ -156,7 +162,7 @@ export default function StyleGuide() {
               <div className="text-6xl leading-none">Aa</div>
               <div className="text-6xl leading-none mt-1 text-primary">Aa</div>
               <div className="mt-4 space-y-1">
-                <div className="text-xl font-medium">DM Sans</div>
+                <div className="text-xl font-medium">Plus Jakarta Sans</div>
                 <div className="label-mono text-muted-foreground">
                   Sans · 400 / 500 / 600 / 700
                 </div>
@@ -169,9 +175,9 @@ export default function StyleGuide() {
                 01
               </div>
               <div className="mt-4 space-y-1">
-                <div className="font-mono text-xl">IBM Plex Mono</div>
+                <div className="font-mono text-xl">Space Mono</div>
                 <div className="label-mono text-muted-foreground">
-                  Mono · 400 / 500 / 600
+                  Mono · 400 / 700
                 </div>
               </div>
             </div>
@@ -359,8 +365,9 @@ export default function StyleGuide() {
             <div className="col-span-12 sm:col-span-9 flex flex-wrap gap-2">
               <Badge>Default</Badge>
               <Badge variant="secondary">Secondary</Badge>
-              <Badge variant="destructive">Destructive</Badge>
               <Badge variant="outline">Outline</Badge>
+              <Badge variant="ghost">Ghost</Badge>
+              <Badge variant="destructive">Destructive</Badge>
             </div>
 
             <div className="col-span-12 sm:col-span-3">
@@ -396,6 +403,155 @@ export default function StyleGuide() {
             />
           </Card>
         </Spread>
+
+        <Spread n="09" kicker="Primitives" title="Input and label.">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-3xl">
+            <div className="space-y-2">
+              <Label htmlFor="sg-standalone-text">Username</Label>
+              <Input id="sg-standalone-text" placeholder="wanderer_77" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sg-standalone-email">Email</Label>
+              <Input id="sg-standalone-email" type="email" placeholder="you@crew.so" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sg-standalone-disabled">Disabled</Label>
+              <Input id="sg-standalone-disabled" placeholder="Not editable" disabled />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sg-standalone-invalid">With error state</Label>
+              <Input
+                id="sg-standalone-invalid"
+                aria-invalid="true"
+                defaultValue="bad-val"
+              />
+              <p className="text-xs text-destructive">This field is required.</p>
+            </div>
+          </div>
+        </Spread>
+
+        <Spread n="10" kicker="Primitives" title="Tabs.">
+          <div className="space-y-10">
+            <div>
+              <div className="label-mono text-muted-foreground mb-4">
+                Default variant (pill list)
+              </div>
+              <Tabs defaultValue="steps">
+                <TabsList>
+                  <TabsTrigger value="steps">Steps</TabsTrigger>
+                  <TabsTrigger value="sleep">Sleep</TabsTrigger>
+                  <TabsTrigger value="profile">Profile</TabsTrigger>
+                </TabsList>
+                <TabsContent value="steps">
+                  <Card className="mt-4">
+                    <p className="text-muted-foreground text-sm">Steps content panel.</p>
+                  </Card>
+                </TabsContent>
+                <TabsContent value="sleep">
+                  <Card className="mt-4">
+                    <p className="text-muted-foreground text-sm">Sleep content panel.</p>
+                  </Card>
+                </TabsContent>
+                <TabsContent value="profile">
+                  <Card className="mt-4">
+                    <p className="text-muted-foreground text-sm">Profile content panel.</p>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </div>
+            <div>
+              <div className="label-mono text-muted-foreground mb-4">
+                Line variant (underline indicator)
+              </div>
+              <Tabs defaultValue="week">
+                <TabsList variant="line">
+                  <TabsTrigger value="week">Week</TabsTrigger>
+                  <TabsTrigger value="month">Month</TabsTrigger>
+                  <TabsTrigger value="all">All time</TabsTrigger>
+                </TabsList>
+                <TabsContent value="week">
+                  <Card className="mt-4">
+                    <p className="text-muted-foreground text-sm">Week content panel.</p>
+                  </Card>
+                </TabsContent>
+                <TabsContent value="month">
+                  <Card className="mt-4">
+                    <p className="text-muted-foreground text-sm">Month content panel.</p>
+                  </Card>
+                </TabsContent>
+                <TabsContent value="all">
+                  <Card className="mt-4">
+                    <p className="text-muted-foreground text-sm">All-time content panel.</p>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
+        </Spread>
+
+        <Spread n="11" kicker="Primitives" title="Separator.">
+          <div className="space-y-10 max-w-3xl">
+            <div>
+              <div className="label-mono text-muted-foreground mb-4">
+                Horizontal (default)
+              </div>
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Above the line.</p>
+                <Separator />
+                <p className="text-sm text-muted-foreground">Below the line.</p>
+              </div>
+            </div>
+            <div>
+              <div className="label-mono text-muted-foreground mb-4">
+                Vertical
+              </div>
+              <div className="flex items-center gap-4 h-8">
+                <span className="text-sm text-muted-foreground">Left</span>
+                <Separator orientation="vertical" />
+                <span className="text-sm text-muted-foreground">Right</span>
+              </div>
+            </div>
+          </div>
+        </Spread>
+
+        <Spread n="12" kicker="Feedback" title="Error state.">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-3xl">
+            <ErrorCard
+              error={new Error('Could not load activity data.')}
+              onRetry={() => undefined}
+            />
+            <ErrorCard
+              error={new Error('Network request failed — check your connection.')}
+              onRetry={() => undefined}
+              fallbackMessage="Something went wrong."
+            />
+          </div>
+        </Spread>
+
+        <Spread n="13" kicker="Data viz" title="Daily bars.">
+          <div className="space-y-6 max-w-3xl">
+            <div>
+              <div className="label-mono text-muted-foreground mb-4">
+                7-day steps (week view)
+              </div>
+              <Card>
+                <DailyBars
+                  days={[
+                    { date: '2026-06-12', total: 7240 },
+                    { date: '2026-06-13', total: 11530 },
+                    { date: '2026-06-14', total: 9820 },
+                    { date: '2026-06-15', total: 4100 },
+                    { date: '2026-06-16', total: 13460 },
+                    { date: '2026-06-17', total: 8770 },
+                    { date: '2026-06-18', total: 6200 },
+                  ]}
+                  cols={7}
+                  unit="steps"
+                />
+              </Card>
+            </div>
+          </div>
+        </Spread>
       </main>
 
       <footer
@@ -408,7 +564,7 @@ export default function StyleGuide() {
               <span className="font-display italic text-4xl">synzoia</span>
               <p className="opacity-70 mt-4 max-w-md">
                 The style guide is set in{' '}
-                <em className="font-display">Lora</em>, DM Sans, and IBM Plex
+                <em className="font-display">Cormorant Garamond</em>, Plus Jakarta Sans, and Space
                 Mono. Colour from the{' '}
                 <em className="font-display">ocean-breeze</em> theme by tweakcn.
               </p>
