@@ -54,7 +54,7 @@ export function AppLayout() {
               data-logo-slot
               className="font-display italic text-xl tracking-tight text-foreground"
             >
-              synzoia
+              syn<span className="text-primary">z</span>oia
             </span>
           </Link>
           <div className="flex items-center gap-6">
