@@ -310,7 +310,7 @@ export default function Landing() {
           <div>
             <div className="label-mono text-muted-foreground mb-3">Colophon</div>
             <ul className="space-y-2 text-muted-foreground">
-              <li>Lora · DM Sans · IBM Plex Mono</li>
+              <li>Cormorant Garamond · Plus Jakarta Sans · Space Mono</li>
               <li>© {new Date().getFullYear()} synzoia</li>
             </ul>
           </div>

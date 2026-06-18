@@ -107,7 +107,7 @@ export default function StyleGuide() {
                 data-logo-slot
                 className="font-display italic text-3xl tracking-tight"
               >
-                synzoia
+                syn<span className="text-primary">z</span>oia
               </span>
               <div className="label-mono text-muted-foreground mt-3">
                 The colophon
@@ -129,7 +129,7 @@ export default function StyleGuide() {
       </header>
 
       <main>
-        <Spread n="01" kicker="Palette · Ocean-breeze" title="The colours.">
+        <Spread n="01" kicker="Palette · Sandalwood & Sea" title="The colours.">
           <p className="text-muted-foreground max-w-2xl mb-8">
             All tokens render in the current OS appearance. Flip your system to
             dark to see the night palette — every name maps the same way, the
@@ -164,7 +164,7 @@ export default function StyleGuide() {
               <div className="mt-4 space-y-1">
                 <div className="text-xl font-medium">Plus Jakarta Sans</div>
                 <div className="label-mono text-muted-foreground">
-                  Sans · 400 / 500 / 600 / 700
+                  Sans · 300 / 400 / 500 / 600
                 </div>
               </div>
             </div>
@@ -561,12 +561,11 @@ export default function StyleGuide() {
         <div className="max-w-6xl mx-auto px-6 sm:px-10 py-16">
           <div className="grid grid-cols-12 gap-x-6 gap-y-6">
             <div className="col-span-12 sm:col-span-6">
-              <span className="font-display italic text-4xl">synzoia</span>
+              <span className="font-display italic text-4xl">syn<span className="text-primary">z</span>oia</span>
               <p className="opacity-70 mt-4 max-w-md">
                 The style guide is set in{' '}
                 <em className="font-display">Cormorant Garamond</em>, Plus Jakarta Sans, and Space
-                Mono. Colour from the{' '}
-                <em className="font-display">ocean-breeze</em> theme by tweakcn.
+                Mono. Colour: Sandalwood &amp; Sea palette.
               </p>
             </div>
             <div className="col-span-12 sm:col-span-6 flex sm:justify-end items-end">
