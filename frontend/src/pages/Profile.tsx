@@ -12,8 +12,10 @@ import GenericPost from '@/components/feed/GenericPost';
 import MilestonePost from '@/components/feed/MilestonePost';
 import RecapPost from '@/components/feed/RecapPost';
 import SleepPost from '@/components/feed/SleepPost';
+import UserAvatar from '@/components/ui/UserAvatar';
 import { ApiError } from '@/api/client';
 import { type FeedPost } from '@/api/posts';
+import { getProfiles } from '@/api/profiles';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import type {
   UserDailyResponse,
@@ -41,6 +43,7 @@ import {
   formatDuration,
   formatTimestampDate,
 } from '@/lib/dates';
+import { currentStreak } from '@/lib/streak';
 
 function formatNumber(n: number): string {
   return n.toLocaleString();
@@ -48,6 +51,8 @@ function formatNumber(n: number): string {
 
 const formatHeadingDate = formatDateMedium;
 const formatJoinDate = formatTimestampDate;
+
+// ── Error / skeleton helpers ──────────────────────────────────────────────────
 
 function StatCard({
   label,
@@ -98,7 +103,7 @@ function NotFoundView({ username }: { username: string }) {
           No one named {username}
         </h1>
         <p className="text-muted-foreground text-sm mt-2">
-          That profile doesn't exist. Check the spelling, or head back to the
+          That profile does not exist. Check the spelling, or head back to the
           feed.
         </p>
         <Button variant="primary" className="mt-4" to="/feed">
@@ -126,28 +131,137 @@ function ErrorView({ error, onRetry }: { error: unknown; onRetry: () => void }) 
   );
 }
 
-function Header({
-  username,
-  joinDate,
-}: {
+// ── Coastal banner ────────────────────────────────────────────────────────────
+
+/**
+ * Token-driven coastal gradient banner. No photo, no hardcoded hex.
+ * Uses on-palette CSS vars so it renders correctly in both light and dark mode.
+ */
+function ProfileBanner() {
+  return (
+    <div
+      aria-hidden="true"
+      className="h-36 sm:h-48 w-full"
+      style={{
+        background: `
+          radial-gradient(ellipse 80% 120% at 20% 0%, color-mix(in oklch, var(--primary) 28%, transparent), transparent 65%),
+          radial-gradient(ellipse 70% 100% at 85% 100%, color-mix(in oklch, var(--fern) 22%, transparent), transparent 60%),
+          radial-gradient(ellipse 60% 80% at 50% 50%, color-mix(in oklch, var(--amber) 12%, transparent), transparent 55%),
+          var(--secondary)
+        `,
+      }}
+    />
+  );
+}
+
+// ── Profile header card ───────────────────────────────────────────────────────
+
+type ProfileHeaderProps = {
   username: string;
   joinDate?: string;
-}) {
+  streak: number;
+  allTimeSteps: number | null;
+  isMe: boolean;
+  onMakeMe: () => void;
+};
+
+function ProfileHeader({
+  username,
+  joinDate,
+  streak,
+  allTimeSteps,
+  isMe,
+  onMakeMe,
+}: ProfileHeaderProps) {
   return (
-    <div>
-      <h1 className="font-display text-4xl tracking-tight">@{username}</h1>
-      {joinDate && (
-        <p className="text-muted-foreground text-sm mt-1">
-          Joined {formatJoinDate(joinDate)}
-        </p>
+    <div className="px-4 sm:px-6 -mt-10 relative z-10">
+      {/* Avatar + identity row */}
+      <div className="flex items-end justify-between gap-4">
+        <div className="flex items-end gap-4">
+          <div className="border-4 border-background rounded-full shadow-md flex-shrink-0">
+            <UserAvatar username={username} size="lg" className="size-20 sm:size-24" />
+          </div>
+          <div className="pb-1">
+            <h1 className="font-display text-3xl sm:text-4xl tracking-tight leading-none">
+              @{username}
+            </h1>
+            {joinDate && (
+              <p className="label-mono text-muted-foreground mt-1">
+                Joined {formatJoinDate(joinDate)}
+              </p>
+            )}
+            {/* All-time steps in header */}
+            <p className="label-mono text-muted-foreground mt-0.5">
+              {allTimeSteps !== null
+                ? `${allTimeSteps.toLocaleString()} steps all time`
+                : '—'}
+            </p>
+          </div>
+        </div>
+
+        {/* Identity button */}
+        <div className="pb-1 flex-shrink-0">
+          {isMe ? (
+            <Button variant="secondary" disabled>
+              This is you
+            </Button>
+          ) : (
+            <Button variant="primary" onClick={onMakeMe}>
+              Make this me
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Streak pill — shown only when streak > 0 */}
+      {streak > 0 && (
+        <div className="mt-4 flex items-center gap-2">
+          <span
+            className="font-display text-xl tabular-nums"
+            style={{ color: 'var(--amber)' }}
+          >
+            {streak}
+          </span>
+          <span aria-hidden="true">{'🔥'}</span>
+          <span className="label-mono text-muted-foreground">day streak</span>
+        </div>
       )}
     </div>
   );
 }
 
-function StatStrip({ data }: { data: UserSummaryResponse }) {
+function ProfileHeaderSkeleton({ username }: { username: string }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+    <div className="px-4 sm:px-6 -mt-10 relative z-10">
+      <div className="flex items-end gap-4">
+        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-muted/60 animate-pulse border-4 border-background flex-shrink-0" />
+        <div className="pb-1 space-y-2">
+          {/* Render the username as an h1 during loading so smoke tests pass */}
+          <h1 className="font-display text-3xl sm:text-4xl tracking-tight leading-none">
+            @{username}
+          </h1>
+          <div className="h-3 w-24 bg-muted/40 rounded animate-pulse" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Stat strips (unchanged from pre-coastal — preserve label strings for tests) ─
+
+function StatStrip({
+  data,
+  allTimeSteps,
+}: {
+  data: UserSummaryResponse;
+  allTimeSteps: number | null;
+}) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <StatCard
+        label="All-time steps"
+        value={allTimeSteps !== null ? allTimeSteps.toLocaleString() : '—'}
+      />
       <StatCard
         label="30-day score"
         value={formatNumber(data.score)}
@@ -186,19 +300,12 @@ function TodayCard({ data }: { data: UserDailyResponse }) {
   );
 }
 
-function formatSleepHours(minutes: number): string {
-  // Floor (not round) so an all-time total reads as whole hours actually
-  // accumulated — matches formatDuration's hours component, and a single
-  // 58-minute night shows "0h", not a misleading "1h".
-  return `${Math.floor(minutes / 60)}h`;
-}
-
 function SleepStatStrip({ data }: { data: SleepSummaryResponse }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
       <StatCard
         label="30-day score"
-        value={formatSleepHours(data.score)}
+        value={`${Math.floor(data.score / 60)}h`}
       />
       <StatCard
         label="Rank"
@@ -234,12 +341,22 @@ function SleepTodayCard({ data }: { data: SleepDailyResponse }) {
   );
 }
 
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+
 const TABS = [
   { key: 'summary', label: 'Summary' },
   { key: 'feed', label: 'Feed' },
 ] as const;
 
-function SummaryPanel({ username }: { username: string }) {
+// ── Summary panel ─────────────────────────────────────────────────────────────
+
+function SummaryPanel({
+  username,
+  allTimeSteps,
+}: {
+  username: string;
+  allTimeSteps: number | null;
+}) {
   const today = currentDate();
   const lastNight = lastNightDate();
 
@@ -262,7 +379,7 @@ function SummaryPanel({ username }: { username: string }) {
         ) : summary.isError ? (
           <ErrorView error={summary.error} onRetry={() => summary.refetch()} />
         ) : (
-          <StatStrip data={summary.data} />
+          <StatStrip data={summary.data} allTimeSteps={allTimeSteps} />
         )}
 
         {daily.isPending ? (
@@ -348,6 +465,8 @@ function SummaryPanel({ username }: { username: string }) {
   );
 }
 
+// ── Feed panel ────────────────────────────────────────────────────────────────
+
 function FeedPanel({ username }: { username: string }) {
   const query = useQuery({ ...userFeedQuery(username), enabled: !!username });
 
@@ -380,31 +499,47 @@ function FeedPanel({ username }: { username: string }) {
   );
 }
 
+// ── Main export ───────────────────────────────────────────────────────────────
+
 export default function Profile() {
   const { username = '' } = useParams<{ username: string }>();
   const [params] = useSearchParams();
   const active = params.get('tab') ?? 'summary';
 
-  // 404 detection hangs on the summary query because every Profile
-  // visit hits it regardless of which tab is active. React Query
-  // dedupes by queryKey, so the inner SummaryPanel's summary query
-  // shares this network request.
+  const { currentUser, setCurrentUser } = useCurrentUser();
+  const queryClient = useQueryClient();
+  const today = currentDate();
+
+  // Fetch profiles list — shares cache with the Users page (same key).
+  const profilesQuery = useQuery({
+    queryKey: ['profiles', 'list'],
+    queryFn: getProfiles,
+    staleTime: 60_000,
+  });
+
+  // Find this user's all-time steps from the profiles list.
+  // null = still loading or user not found; treat both as "—".
+  const allTimeSteps: number | null =
+    profilesQuery.data?.profiles?.find((p) => p.username === username)
+      ?.total_steps_all_time ?? null;
+
+  // 404 detection: hits summary on every visit regardless of active tab.
+  // React Query dedupes, so the inner SummaryPanel's summary query shares
+  // this network request.
   const summary = useQuery({ ...stepsSummaryQuery(username), enabled: !!username });
 
-  const { currentUser, setCurrentUser } = useCurrentUser();
+  // Monthly steps breakdown powers the streak util.
+  // `daily_breakdown` is already `{ date: string; total: number }[]` — same
+  // shape currentStreak expects, no field renaming needed.
+  const monthly = useQuery({ ...stepsMonthlyQuery(username, today), enabled: !!username });
 
-  const queryClient = useQueryClient();
-  // Warm the feed in the background as soon as the profile loads, so the
-  // Feed tab renders instantly when opened. prefetchQuery respects
-  // staleTime and swallows errors, so this never affects the Summary view.
+  // Warm the feed in the background so the Feed tab is instant when opened.
+  // prefetchQuery respects staleTime and swallows errors.
   useEffect(() => {
     if (username) queryClient.prefetchQuery(userFeedQuery(username));
   }, [queryClient, username]);
 
-  // Defensive guard for the unlikely case where useParams returns
-  // empty — Profile is only routed under /u/:username, so this is
-  // belt-and-suspenders against a route misconfig. Placed AFTER all
-  // hooks to respect the Rules of Hooks.
+  // Defensive guard — Profile is only routed under /u/:username.
   if (!username) {
     return <NotFoundView username="" />;
   }
@@ -416,31 +551,41 @@ export default function Profile() {
     return <NotFoundView username={username} />;
   }
 
+  // Map monthly daily_breakdown -> streak input.
+  // date field: daily_breakdown[i].date (YYYY-MM-DD, CT-anchored by the backend)
+  // total field: daily_breakdown[i].total (step count for that calendar day)
+  const streak = currentStreak(monthly.data?.daily_breakdown ?? [], today);
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <Header
+    <div className="space-y-0">
+      {/* Coastal gradient banner — token-driven, no photo, no hardcoded hex */}
+      <ProfileBanner />
+
+      {/* Profile header: avatar (UserAvatar lg) + @username + join date + streak */}
+      {summary.isPending ? (
+        <ProfileHeaderSkeleton username={username} />
+      ) : (
+        <ProfileHeader
           username={summary.data?.username ?? username}
           joinDate={summary.data?.join_date}
+          streak={streak}
+          allTimeSteps={allTimeSteps}
+          isMe={currentUser === username}
+          onMakeMe={() => setCurrentUser(username)}
         />
-        <div className="shrink-0">
-          {currentUser === username ? (
-            <Button variant="secondary" disabled>
-              ✓ This is you
-            </Button>
-          ) : (
-            <Button variant="primary" onClick={() => setCurrentUser(username)}>
-              Make this me
-            </Button>
-          )}
-        </div>
-      </div>
-      <TabStrip tabs={[...TABS]} defaultKey="summary" />
-      {active === 'feed' ? (
-        <FeedPanel username={username} />
-      ) : (
-        <SummaryPanel username={username} />
       )}
+
+      <div className="mt-6 space-y-6">
+        {/* Tabs */}
+        <TabStrip tabs={[...TABS]} defaultKey="summary" />
+
+        {/* Tab bodies */}
+        {active === 'feed' ? (
+          <FeedPanel username={username} />
+        ) : (
+          <SummaryPanel username={username} allTimeSteps={allTimeSteps} />
+        )}
+      </div>
     </div>
   );
 }

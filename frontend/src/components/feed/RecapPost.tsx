@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Medal, Trophy } from 'lucide-react';
 
-import Card from '@/components/ui/AppCard';
+import UserAvatar from '@/components/ui/UserAvatar';
 import type { FeedPost } from '@/api/posts';
 import { formatPostedAt, formatDateMedium } from '@/lib/dates';
 
@@ -10,7 +10,7 @@ function formatNumber(n: number): string {
 }
 
 // Gold / silver / bronze tints for the top-3 medal icons. Subtle on the
-// dark theme — enough to read as a podium without the loud emoji look.
+// dark theme -- enough to read as a podium without the loud emoji look.
 const MEDAL_TINTS = ['text-amber-300', 'text-slate-300', 'text-amber-600'];
 const PLACES = ['1st place', '2nd place', '3rd place'];
 
@@ -20,9 +20,15 @@ export default function RecapPost({ post }: { post: FeedPost }) {
   const heading = rankedDate
     ? `Congrats to the top 3 · ${formatDateMedium(rankedDate)}`
     : 'Congrats to the top 3';
+
+  const leader = top[0];
+  const metricValue =
+    leader ? `@${leader.username} · ${leader.total.toLocaleString()} steps` : null;
+
   return (
-    <Card className="bg-accent/10">
-      <div className="flex items-baseline justify-between gap-3 mb-3">
+    <div className="surface-glass overflow-hidden mb-0 hover:shadow-md transition-shadow bg-accent/10">
+      {/* header */}
+      <div className="flex items-baseline justify-between gap-3 px-5 pt-5 pb-3">
         <h3 className="font-display text-xl tracking-tight flex items-center gap-2">
           <Trophy
             size={18}
@@ -32,13 +38,16 @@ export default function RecapPost({ post }: { post: FeedPost }) {
           />
           {heading}
         </h3>
-        <span className="label-mono text-muted-foreground">
+        <span className="label-mono text-muted-foreground shrink-0">
           {formatPostedAt(post.timestamp)}
         </span>
       </div>
-      <ol className="space-y-2">
+
+      {/* ranked list */}
+      <ol className="space-y-2 px-5 pb-4">
         {top.map((entry, i) => (
           <li key={entry.username} className="flex items-center gap-3">
+            <UserAvatar username={entry.username} size="sm" />
             {i < 3 ? (
               <Medal
                 size={18}
@@ -68,6 +77,15 @@ export default function RecapPost({ post }: { post: FeedPost }) {
           </li>
         ))}
       </ol>
-    </Card>
+
+      {/* footer: metric chip for #1 leader */}
+      {metricValue && (
+        <div className="px-5 pb-4 flex items-center gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 label-mono text-primary">
+            {metricValue}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }

@@ -90,3 +90,35 @@ export function getUserSummary(username: string): Promise<UserSummaryResponse> {
     `/sleep/users/${encodeURIComponent(username)}/summary`,
   );
 }
+
+export interface GlobalSleepSummaryResponse {
+  total_users: number;
+  total_minutes_all_time: number;
+  today_leader: { username: string; total: number } | null;
+  this_week_leader: { username: string; total: number } | null;
+  best_night_ever: { date: string; total: number; username: string } | null;
+}
+
+export function getGlobalSleepSummary(): Promise<GlobalSleepSummaryResponse> {
+  return apiFetch<GlobalSleepSummaryResponse>('/sleep/summary');
+}
+
+// ── Sleep ranking (weekly leaderboard) ───────────────────────────────────────
+
+export interface SleepLeaderboardEntry {
+  rank: number;
+  username: string;
+  total: number; // total minutes for the week
+}
+
+export interface GlobalSleepRankingResponse {
+  week_start: string;
+  week_end: string;
+  total_minutes: number;
+  leaderboard: SleepLeaderboardEntry[];
+  daily_breakdown: DailyTotal[];
+}
+
+export function getSleepRanking(): Promise<GlobalSleepRankingResponse> {
+  return apiFetch<GlobalSleepRankingResponse>('/sleep/ranking');
+}

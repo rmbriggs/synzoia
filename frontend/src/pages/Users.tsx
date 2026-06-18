@@ -7,6 +7,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import ErrorCard from '@/components/ui/ErrorCard';
 import PageHeader from '@/components/ui/PageHeader';
 import RowListSkeleton from '@/components/ui/RowListSkeleton';
+import UserAvatar from '@/components/ui/UserAvatar';
 import { getProfiles, type ProfileListEntry } from '@/api/profiles';
 import { userSummaryQueries } from '@/api/userSummaryQueries';
 import { currentDate, lastNightDate } from '@/lib/dates';
@@ -57,19 +58,28 @@ function UserRow({ profile }: { profile: ProfileListEntry }) {
   }, []);
 
   return (
-    <li className="border-b border-border/60 last:border-b-0">
+    <li className="flex items-center gap-4 py-3 border-b border-border/60 last:border-b-0">
+      {/* Avatar */}
+      <div className="shrink-0">
+        <UserAvatar username={profile.username} size="sm" />
+      </div>
+
+      {/* Username link */}
       <Link
         to={`/u/${encodeURIComponent(profile.username)}`}
         onMouseEnter={startHoverPrefetch}
         onMouseLeave={cancelHoverPrefetch}
         onFocus={prefetch}
         onBlur={cancelHoverPrefetch}
-        className="flex items-center gap-4 py-3 hover:text-primary transition-colors"
+        className="font-medium hover:text-primary transition-colors flex-1 min-w-0 truncate"
       >
-        <span className="font-medium flex-1 min-w-0 truncate">
-          @{profile.username}
-        </span>
+        @{profile.username}
       </Link>
+
+      {/* All-time steps */}
+      <span className="font-mono tabular-nums text-sm text-muted-foreground shrink-0">
+        {profile.total_steps_all_time.toLocaleString()} steps
+      </span>
     </li>
   );
 }

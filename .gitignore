@@ -48,3 +48,6 @@ htmlcov/
 
 # Course materials — not for public repo
 final_project.pdf
+
+# SDD process scaffolding (subagent task reports) — not part of deliverables
+docs/sdd/

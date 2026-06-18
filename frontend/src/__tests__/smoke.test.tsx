@@ -35,11 +35,10 @@ describe('App smoke', () => {
     });
   }
 
-  it('renders the Feed at "/" (the default view)', () => {
+  it('renders the Landing marketing page at "/"', () => {
     const { container } = renderAt('/');
-    // "/" now redirects to /feed. The Feed's description is unique to it;
-    // the Landing headline must no longer appear at the default route.
-    expect(container.textContent).toContain('Recent milestones and recaps.');
-    expect(container.textContent).not.toContain('More than a step counter.');
+    // "/" now renders the Landing page (SP3 redesign). The Feed is at /feed.
+    expect(container.textContent).toContain('Wide open.');
+    expect(container.textContent).not.toContain('Recent milestones and recaps.');
   });
 });
