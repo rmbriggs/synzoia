@@ -90,3 +90,13 @@ export function getUserSummary(username: string): Promise<UserSummaryResponse> {
     `/sleep/users/${encodeURIComponent(username)}/summary`,
   );
 }
+
+export interface GlobalSleepSummaryResponse {
+  avg_duration_min: number;
+  total_nights: number;
+  best_night_ever: { username: string; date: string; duration_min: number } | null;
+}
+
+export function getGlobalSleepSummary(): Promise<GlobalSleepSummaryResponse> {
+  return apiFetch<GlobalSleepSummaryResponse>('/sleep/summary');
+}
