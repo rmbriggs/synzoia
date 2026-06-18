@@ -102,3 +102,23 @@ export interface GlobalSleepSummaryResponse {
 export function getGlobalSleepSummary(): Promise<GlobalSleepSummaryResponse> {
   return apiFetch<GlobalSleepSummaryResponse>('/sleep/summary');
 }
+
+// ── Sleep ranking (weekly leaderboard) ───────────────────────────────────────
+
+export interface SleepLeaderboardEntry {
+  rank: number;
+  username: string;
+  total: number; // total minutes for the week
+}
+
+export interface GlobalSleepRankingResponse {
+  week_start: string;
+  week_end: string;
+  total_minutes: number;
+  leaderboard: SleepLeaderboardEntry[];
+  daily_breakdown: DailyTotal[];
+}
+
+export function getSleepRanking(): Promise<GlobalSleepRankingResponse> {
+  return apiFetch<GlobalSleepRankingResponse>('/sleep/ranking');
+}
