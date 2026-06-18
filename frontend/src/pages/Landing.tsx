@@ -70,7 +70,7 @@ const features = [
     accentVar: '--fern',
     title: 'Per-user profiles',
     body:
-      'Total steps. Best day. Current rank. Days active. The minimum viable record of who has been showing up, and how much.',
+      'Total steps. Best day. Current rank. Sleep score. Current streak. The minimum viable record of who has been showing up, and how much.',
     tag: 'Public',
   },
 ];
@@ -91,7 +91,7 @@ const howSteps = [
   {
     n: '03',
     title: 'Your data posts to the shared feed',
-    body: 'Walk. Sleep. Your numbers appear in real time on the public feed. Comment, react, watch each other grow — no algorithm, no feed manipulation.',
+    body: 'Walk. Sleep. Your numbers appear in real time on the public feed. No algorithm, no feed manipulation — just everyone showing up.',
   },
 ];
 
@@ -446,13 +446,13 @@ export default function Landing() {
               <Button
                 variant="primary"
                 to="/feed"
-                className="rounded-full bg-[oklch(0.9620_0.0180_80)] text-[var(--fern-deep)] hover:bg-[oklch(0.96_0.018_80)/90] font-semibold"
+                className="rounded-full bg-[oklch(0.9620_0.0180_80)] text-[var(--fern-deep)] hover:bg-[color-mix(in_oklch,oklch(0.9620_0.0180_80)_90%,transparent)] font-semibold"
               >
                 Open the feed →
               </Button>
               <Link
                 to="/join"
-                className="label-mono border border-[oklch(0.9620_0.0180_80)/40] text-[oklch(0.9620_0.0180_80)] px-6 py-2.5 rounded-full hover:border-[oklch(0.9620_0.0180_80)] transition-colors"
+                className="label-mono border border-[color-mix(in_oklch,oklch(0.9620_0.0180_80)_40%,transparent)] text-[oklch(0.9620_0.0180_80)] px-6 py-2.5 rounded-full hover:border-[oklch(0.9620_0.0180_80)] transition-colors"
               >
                 Get your token
               </Link>

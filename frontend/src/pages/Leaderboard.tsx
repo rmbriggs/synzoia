@@ -30,7 +30,7 @@ const MEDAL_STYLES: Record<
 > = {
   1: {
     label: 'Gold',
-    badgeCls: 'text-[--amber] font-bold',
+    badgeCls: 'text-[color:var(--amber)] font-bold',
     ringStyle: { boxShadow: '0 0 0 2px var(--amber)' },
   },
   2: {
@@ -40,7 +40,7 @@ const MEDAL_STYLES: Record<
   },
   3: {
     label: 'Bronze',
-    badgeCls: 'text-[--bark] font-bold',
+    badgeCls: 'text-[color:var(--bark)] font-bold',
     ringStyle: { boxShadow: '0 0 0 2px var(--bark)' },
   },
 };

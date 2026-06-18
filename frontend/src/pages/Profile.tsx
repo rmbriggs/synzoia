@@ -179,7 +179,7 @@ function ProfileHeader({
       <div className="flex items-end justify-between gap-4">
         <div className="flex items-end gap-4">
           <div className="border-4 border-background rounded-full shadow-md flex-shrink-0">
-            <UserAvatar username={username} size="lg" />
+            <UserAvatar username={username} size="lg" className="size-20 sm:size-24" />
           </div>
           <div className="pb-1">
             <h1 className="font-display text-3xl sm:text-4xl tracking-tight leading-none">
