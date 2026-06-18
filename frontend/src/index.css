@@ -222,31 +222,37 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    opacity: 0.4;
+    opacity: 0.35;
     mix-blend-mode: overlay;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.6 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
   }
+  /* Warm sandalwood wash for the hero CTA section */
   .hero-wash {
     background:
       radial-gradient(60% 60% at 80% 10%, color-mix(in oklch, var(--accent) 70%, transparent) 0%, transparent 70%),
       radial-gradient(70% 60% at 10% 90%, color-mix(in oklch, var(--secondary) 80%, transparent) 0%, transparent 65%),
       var(--background);
   }
+  /* Deep forest green band — used for the community/app-preview section  */
+  .forest-band {
+    background:
+      radial-gradient(ellipse 70% 60% at 80% 20%, color-mix(in oklch, var(--fern) 22%, transparent), transparent 65%),
+      radial-gradient(ellipse 50% 70% at 10% 80%, color-mix(in oklch, var(--bark) 18%, transparent), transparent 60%),
+      radial-gradient(ellipse 40% 50% at 50% 0%,  color-mix(in oklch, var(--primary) 12%, transparent), transparent 60%),
+      var(--fern-deep);
+    color: oklch(0.9620 0.0180 80);
+  }
 }
 
 /* ------------------------------------------------------------------ *
- *  Marine-forecast inspired surfaces                                    *
- *  Used on Dashboard cards, filter pills, floating bottom nav.          *
- *  Designed to look right in dark mode; degrade gracefully in light.    *
+ *  Shared surface utilities (feed cards, pills, bottom nav)            *
  * ------------------------------------------------------------------ */
 @layer utilities {
-  /* Glassy card with a soft top-to-bottom gradient + faint inner glow at top.
-     The gradient mimics how light hits a slightly raised surface from above. */
   .surface-glass {
     background:
       linear-gradient(
         180deg,
-        color-mix(in oklch, var(--card) 96%, oklch(0.92 0.08 230) 4%) 0%,
+        color-mix(in oklch, var(--card) 96%, var(--primary) 4%) 0%,
         var(--card) 100%
       );
     border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
@@ -259,18 +265,16 @@
     background:
       linear-gradient(
         180deg,
-        color-mix(in oklch, var(--card) 88%, oklch(0.45 0.12 240) 12%) 0%,
+        color-mix(in oklch, var(--card) 88%, oklch(0.44 0.10 155) 12%) 0%,
         var(--card) 70%,
         color-mix(in oklch, var(--card) 92%, var(--background) 8%) 100%
       );
-    border-color: color-mix(in oklch, oklch(0.55 0.10 240) 35%, transparent);
+    border-color: color-mix(in oklch, oklch(0.44 0.10 155) 30%, transparent);
     box-shadow:
-      0 1px 0 color-mix(in oklch, oklch(0.95 0.10 230) 8%, transparent) inset,
+      0 1px 0 color-mix(in oklch, oklch(0.90 0.05 155) 8%, transparent) inset,
       0 24px 60px -28px oklch(0 0 0 / 0.8);
   }
 
-  /* Floating pill — used for filter chips and the bottom nav. Soft glow ring
-     in the active state, no border in the resting state. */
   .pill {
     display: inline-flex;
     align-items: center;
@@ -299,8 +303,6 @@
       0 8px 28px -10px color-mix(in oklch, var(--primary) 40%, transparent);
   }
 
-  /* Floating glass tab bar (mobile bottom nav). Sits above content, pinned
-     bottom. Translucent so the page tint shows through. */
   .glass-bar {
     background: color-mix(in oklch, var(--card) 75%, transparent);
     border: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
@@ -311,7 +313,6 @@
       0 12px 30px -8px oklch(0 0 0 / 0.45);
   }
 
-  /* Soft cyan glow ring used on hero numerals or feature highlights. */
   .glow-primary {
     text-shadow: 0 0 28px color-mix(in oklch, var(--primary) 45%, transparent);
   }
@@ -322,10 +323,7 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.rise {
-  animation: rise 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
+.rise   { animation: rise 700ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .rise-1 { animation-delay: 80ms; }
 .rise-2 { animation-delay: 180ms; }
 .rise-3 { animation-delay: 300ms; }
@@ -333,16 +331,9 @@
 .rise-5 { animation-delay: 600ms; }
 
 @media (prefers-reduced-motion: reduce) {
-  .rise, .rise-1, .rise-2, .rise-3, .rise-4, .rise-5 {
-    animation: none;
-  }
+  .rise, .rise-1, .rise-2, .rise-3, .rise-4, .rise-5 { animation: none; }
 }
 
-/* Range-toggle chart transitions. Switching to the 30-day view "zooms out"
-   (starts slightly enlarged and settles) to feel like pulling back for the
-   bigger picture; the 7-day view "zooms in" (starts slightly shrunk) to feel
-   like focusing on the week. The chart wrapper is keyed by range so React
-   remounts it, replaying the animation on every toggle. */
 @keyframes zoom-in {
   from { opacity: 0; transform: scale(0.94); }
   to   { opacity: 1; transform: scale(1); }
@@ -353,7 +344,7 @@
   to   { opacity: 1; transform: scale(1); }
 }
 
-.zoom-in  { animation: zoom-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.zoom-in  { animation: zoom-in  260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .zoom-out { animation: zoom-out 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 @media (prefers-reduced-motion: reduce) {
