@@ -162,11 +162,24 @@ function aliceSleepMonthly() {
   });
 }
 
+function aliceProfiles() {
+  return ok({
+    profiles: [
+      {
+        username: 'alice',
+        join_date: '2026-05-01T00:00:00Z',
+        total_steps_all_time: 125000,
+      },
+    ],
+  });
+}
+
 function summaryMocks() {
   // Pattern order matters because routedMock uses includes() and
   // returns on first match. Full /sleep/... paths come first so they
   // aren't shadowed by the loose /summary, /daily, ... steps keys.
   return {
+    '/profiles': aliceProfiles,
     '/sleep/users/alice/summary': aliceSleepSummary,
     '/sleep/users/alice/daily': aliceSleepDaily,
     '/sleep/users/alice/weekly': aliceSleepWeekly,
@@ -212,12 +225,17 @@ describe('Profile page', () => {
       expect(screen.getAllByRole('tab', { name: '30D' })).toHaveLength(2);
     });
 
-    it('renders the 3-card strip: 30-day score, rank, best', async () => {
+    it('renders the stat strip: all-time steps, 30-day score, rank, best', async () => {
       globalThis.fetch = routedMock(summaryMocks());
       renderAt('/u/alice');
       expect(await screen.findAllByText('30-day score')).toHaveLength(2); // steps + sleep
       expect(screen.getAllByText('Rank')).toHaveLength(2);
-      expect(screen.queryByText('All-time steps')).not.toBeInTheDocument();
+      // All-time steps label appears in the stats strip.
+      expect(await screen.findByText('All-time steps')).toBeInTheDocument();
+      // 125,000 from the profiles mock — stat card value.
+      expect(screen.getByText('125,000')).toBeInTheDocument();
+      // Header shows the all-time steps inline.
+      expect(screen.getByText('125,000 steps all time')).toBeInTheDocument();
       expect(screen.queryByText('Days active')).not.toBeInTheDocument();
       expect(screen.queryByText('All-time sleep')).not.toBeInTheDocument();
       expect(screen.queryByText('Nights logged')).not.toBeInTheDocument();
@@ -408,9 +426,11 @@ describe('Profile page', () => {
       expect(
         screen.getByRole('heading', { level: 1, name: '@lonely' }),
       ).toBeInTheDocument();
-      // Standalone "—": Rank (StatStrip), Best day (StatStrip), Today's
-      // rank (TodayCard).
-      expect(screen.getAllByText('—')).toHaveLength(3);
+      // Standalone "—": All-time steps header, All-time steps (StatStrip),
+      // Rank (StatStrip), Best day (StatStrip), Today's rank (TodayCard).
+      // lonely is absent from the profiles list (no /profiles mock), so
+      // all-time steps renders "—" in both the header and the stats card.
+      expect(screen.getAllByText('—')).toHaveLength(5);
       // The Steps week chart has no logged days, so its meta reads "— · —".
       // (The Sleep card has real data here, so it isn't dashed.)
       expect(screen.getAllByText('— · —')).toHaveLength(1);

@@ -15,6 +15,7 @@ import SleepPost from '@/components/feed/SleepPost';
 import UserAvatar from '@/components/ui/UserAvatar';
 import { ApiError } from '@/api/client';
 import { type FeedPost } from '@/api/posts';
+import { getProfiles } from '@/api/profiles';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import type {
   UserDailyResponse,
@@ -159,8 +160,7 @@ type ProfileHeaderProps = {
   username: string;
   joinDate?: string;
   streak: number;
-  stepScore?: number;
-  sleepRank?: number | null;
+  allTimeSteps: number | null;
   isMe: boolean;
   onMakeMe: () => void;
 };
@@ -169,6 +169,7 @@ function ProfileHeader({
   username,
   joinDate,
   streak,
+  allTimeSteps,
   isMe,
   onMakeMe,
 }: ProfileHeaderProps) {
@@ -189,6 +190,12 @@ function ProfileHeader({
                 Joined {formatJoinDate(joinDate)}
               </p>
             )}
+            {/* All-time steps in header */}
+            <p className="label-mono text-muted-foreground mt-0.5">
+              {allTimeSteps !== null
+                ? `${allTimeSteps.toLocaleString()} steps all time`
+                : '—'}
+            </p>
           </div>
         </div>
 
@@ -242,9 +249,19 @@ function ProfileHeaderSkeleton({ username }: { username: string }) {
 
 // ── Stat strips (unchanged from pre-coastal — preserve label strings for tests) ─
 
-function StatStrip({ data }: { data: UserSummaryResponse }) {
+function StatStrip({
+  data,
+  allTimeSteps,
+}: {
+  data: UserSummaryResponse;
+  allTimeSteps: number | null;
+}) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <StatCard
+        label="All-time steps"
+        value={allTimeSteps !== null ? allTimeSteps.toLocaleString() : '—'}
+      />
       <StatCard
         label="30-day score"
         value={formatNumber(data.score)}
@@ -333,7 +350,13 @@ const TABS = [
 
 // ── Summary panel ─────────────────────────────────────────────────────────────
 
-function SummaryPanel({ username }: { username: string }) {
+function SummaryPanel({
+  username,
+  allTimeSteps,
+}: {
+  username: string;
+  allTimeSteps: number | null;
+}) {
   const today = currentDate();
   const lastNight = lastNightDate();
 
@@ -356,7 +379,7 @@ function SummaryPanel({ username }: { username: string }) {
         ) : summary.isError ? (
           <ErrorView error={summary.error} onRetry={() => summary.refetch()} />
         ) : (
-          <StatStrip data={summary.data} />
+          <StatStrip data={summary.data} allTimeSteps={allTimeSteps} />
         )}
 
         {daily.isPending ? (
@@ -487,6 +510,19 @@ export default function Profile() {
   const queryClient = useQueryClient();
   const today = currentDate();
 
+  // Fetch profiles list — shares cache with the Users page (same key).
+  const profilesQuery = useQuery({
+    queryKey: ['profiles', 'list'],
+    queryFn: getProfiles,
+    staleTime: 60_000,
+  });
+
+  // Find this user's all-time steps from the profiles list.
+  // null = still loading or user not found; treat both as "—".
+  const allTimeSteps: number | null =
+    profilesQuery.data?.profiles?.find((p) => p.username === username)
+      ?.total_steps_all_time ?? null;
+
   // 404 detection: hits summary on every visit regardless of active tab.
   // React Query dedupes, so the inner SummaryPanel's summary query shares
   // this network request.
@@ -533,6 +569,7 @@ export default function Profile() {
           username={summary.data?.username ?? username}
           joinDate={summary.data?.join_date}
           streak={streak}
+          allTimeSteps={allTimeSteps}
           isMe={currentUser === username}
           onMakeMe={() => setCurrentUser(username)}
         />
@@ -546,7 +583,7 @@ export default function Profile() {
         {active === 'feed' ? (
           <FeedPanel username={username} />
         ) : (
-          <SummaryPanel username={username} />
+          <SummaryPanel username={username} allTimeSteps={allTimeSteps} />
         )}
       </div>
     </div>
