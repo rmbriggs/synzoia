@@ -92,9 +92,11 @@ export function getUserSummary(username: string): Promise<UserSummaryResponse> {
 }
 
 export interface GlobalSleepSummaryResponse {
-  avg_duration_min: number;
-  total_nights: number;
-  best_night_ever: { username: string; date: string; duration_min: number } | null;
+  total_users: number;
+  total_minutes_all_time: number;
+  today_leader: { username: string; total: number } | null;
+  this_week_leader: { username: string; total: number } | null;
+  best_night_ever: { date: string; total: number; username: string } | null;
 }
 
 export function getGlobalSleepSummary(): Promise<GlobalSleepSummaryResponse> {

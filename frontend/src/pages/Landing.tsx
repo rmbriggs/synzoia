@@ -286,20 +286,20 @@ export default function Landing() {
                     </div>
                   )}
 
-                  {/* Avg sleep (global) */}
+                  {/* Best night ever (global sleep) */}
                   {statsLoading ? (
                     <StatSkeleton />
                   ) : (
                     <div className="flex-1 px-5 py-4">
-                      <div className="font-display text-[2rem] leading-none tracking-tight">
-                        {sleepQ.data
-                          ? fmtMinutes(sleepQ.data.avg_duration_min)
-                          : stepsQ.data?.best_day_ever
-                            ? fmtSteps(stepsQ.data.best_day_ever.total)
-                            : '—'}
+                      <div className="font-display text-[2rem] leading-none tracking-tight truncate">
+                        {sleepQ.data?.best_night_ever
+                          ? fmtMinutes(sleepQ.data.best_night_ever.total)
+                          : '—'}
                       </div>
                       <div className="label-mono text-muted-foreground mt-1">
-                        {sleepQ.data ? 'Avg sleep' : 'Best day ever'}
+                        {sleepQ.data?.best_night_ever
+                          ? `Best night · ${sleepQ.data.best_night_ever.username}`
+                          : 'Best night ever'}
                       </div>
                     </div>
                   )}
