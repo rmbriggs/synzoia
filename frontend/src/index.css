@@ -58,10 +58,10 @@
 }
 
 :root {
-  --radius: 0.5rem;
-  --font-sans: "DM Sans", sans-serif;
-  --font-serif: "Lora", Georgia, serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --radius: 0.75rem;
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+  --font-mono: "Space Mono", ui-monospace, monospace;
   --tracking-normal: 0em;
   --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
   --tracking-tight: calc(var(--tracking-normal) - 0.025em);
@@ -83,83 +83,93 @@
   --shadow-lg: 0px 4px 8px -1px hsl(0 0% 0% / 0.10), 0px 4px 6px -2px hsl(0 0% 0% / 0.10);
   --shadow-xl: 0px 4px 8px -1px hsl(0 0% 0% / 0.10), 0px 8px 10px -2px hsl(0 0% 0% / 0.10);
   --shadow-2xl: 0px 4px 8px -1px hsl(0 0% 0% / 0.25);
-  --background: oklch(0.9751 0.0127 244.2507);
-  --foreground: oklch(0.3729 0.0306 259.7328);
-  --card: oklch(1.0000 0 0);
-  --card-foreground: oklch(0.3729 0.0306 259.7328);
-  --popover: oklch(1.0000 0 0);
-  --popover-foreground: oklch(0.3729 0.0306 259.7328);
-  /* Primary accent: matches the dark-mode cyan/sky blue (hue 230) but a
-     touch darker so it has presence on the cream light-mode background.
-     Same brand color across themes — just calibrated for contrast. */
-  --primary: oklch(0.6200 0.1600 230);
-  --primary-foreground: oklch(1.0000 0 0);
-  --secondary: oklch(0.9514 0.0250 230);
-  --secondary-foreground: oklch(0.4461 0.0263 256.8018);
-  --muted: oklch(0.9670 0.0029 264.5419);
-  --muted-foreground: oklch(0.5510 0.0234 264.3637);
-  --accent: oklch(0.9450 0.0500 230);
-  --accent-foreground: oklch(0.3729 0.0306 259.7328);
-  --destructive: oklch(0.6368 0.2078 25.3313);
-  --destructive-foreground: oklch(1.0000 0 0);
-  --border: oklch(0.9276 0.0058 264.5313);
-  --input: oklch(0.9276 0.0058 264.5313);
-  --ring: oklch(0.6200 0.1600 230);
-  --chart-1: oklch(0.6200 0.1600 230);
-  --chart-2: oklch(0.6800 0.1400 220);
-  --chart-3: oklch(0.5500 0.1500 235);
-  --chart-4: oklch(0.4800 0.1300 240);
-  --chart-5: oklch(0.4200 0.1100 245);
-  --sidebar: oklch(0.9514 0.0250 230);
-  --sidebar-foreground: oklch(0.3729 0.0306 259.7328);
-  --sidebar-primary: oklch(0.6200 0.1600 230);
+
+  /* ── Sandalwood & Sea palette ───────────────────────────────────────────
+     Light mode: warm parchment background, Pacific aquamarine primary,
+     fern green secondary, redwood bark accent.                            */
+  --background:            oklch(0.9620 0.0180 80);   /* sandalwood parchment  */
+  --foreground:            oklch(0.2400 0.0300 160);  /* deep forest           */
+  --card:                  oklch(0.9900 0.0100 85);   /* warm white            */
+  --card-foreground:       oklch(0.2400 0.0300 160);
+  --popover:               oklch(0.9900 0.0100 85);
+  --popover-foreground:    oklch(0.2400 0.0300 160);
+  /* Aquamarine — Pacific coast teal */
+  --primary:               oklch(0.6100 0.1100 185);
+  --primary-foreground:    oklch(1.0000 0 0);
+  --secondary:             oklch(0.9380 0.0230 78);   /* warm sand             */
+  --secondary-foreground:  oklch(0.4400 0.0500 155);  /* fern mid              */
+  --muted:                 oklch(0.9500 0.0180 80);
+  --muted-foreground:      oklch(0.6000 0.0300 155);  /* sage green-grey       */
+  /* Fern green tint for accents/hovers */
+  --accent:                oklch(0.9100 0.0400 155);
+  --accent-foreground:     oklch(0.2400 0.0300 160);
+  --destructive:           oklch(0.6368 0.2078 25.3313);
+  --destructive-foreground:oklch(1.0000 0 0);
+  --border:                oklch(0.8800 0.0200 78);   /* warm sandalwood border */
+  --input:                 oklch(0.8800 0.0200 78);
+  --ring:                  oklch(0.6100 0.1100 185);
+  /* Chart colors — aquamarine family */
+  --chart-1:               oklch(0.6100 0.1100 185);
+  --chart-2:               oklch(0.4400 0.1000 155);  /* fern                  */
+  --chart-3:               oklch(0.6800 0.1400 66);   /* amber                 */
+  --chart-4:               oklch(0.4100 0.0900 42);   /* bark                  */
+  --chart-5:               oklch(0.3500 0.0900 150);  /* deep fern             */
+  --sidebar:               oklch(0.9380 0.0230 78);
+  --sidebar-foreground:    oklch(0.2400 0.0300 160);
+  --sidebar-primary:       oklch(0.6100 0.1100 185);
   --sidebar-primary-foreground: oklch(1.0000 0 0);
-  --sidebar-accent: oklch(0.9450 0.0500 230);
-  --sidebar-accent-foreground: oklch(0.3729 0.0306 259.7328);
-  --sidebar-border: oklch(0.9276 0.0058 264.5313);
-  --sidebar-ring: oklch(0.6200 0.1600 230);
+  --sidebar-accent:        oklch(0.9100 0.0400 155);
+  --sidebar-accent-foreground: oklch(0.2400 0.0300 160);
+  --sidebar-border:        oklch(0.8800 0.0200 78);
+  --sidebar-ring:          oklch(0.6100 0.1100 185);
+
+  /* Earthy extras — available as CSS vars for the landing page */
+  --fern:                  oklch(0.4400 0.1000 155);  /* #2d6a4f               */
+  --fern-deep:             oklch(0.3500 0.0900 150);  /* #1e4d2b               */
+  --fern-light:            oklch(0.9100 0.0500 155);  /* soft fern tint        */
+  --bark:                  oklch(0.4100 0.0900 42);   /* #7a3e28               */
+  --bark-light:            oklch(0.9300 0.0300 60);   /* soft bark tint        */
+  --amber:                 oklch(0.6800 0.1400 66);   /* #c68642               */
 }
 
-/* Dark mode applies when <html> has the `.dark` class.
-   The class is set by the inline script in index.html (default = dark)
-   and by useTheme() when the user toggles. */
+/* Dark mode: deep forest green replaces midnight navy.
+   The class is set by the inline script in index.html (default = OS preference)
+   and toggled by useTheme().                                              */
 :root.dark {
-  /* Deep midnight navy, hint of purple-blue. Matches the marine-forecast
-     screenshots' ambient color: almost black with a cool tint. */
-  --background: oklch(0.1450 0.0250 265);
-  --foreground: oklch(0.9200 0.0080 250);
-  /* Card surface sits slightly above background; gradients applied per-card */
-  --card: oklch(0.2100 0.0320 265);
-  --card-foreground: oklch(0.9200 0.0080 250);
-  --popover: oklch(0.2100 0.0320 265);
-  --popover-foreground: oklch(0.9200 0.0080 250);
-  /* Electric cyan/sky blue — the signature accent in the screenshots */
-  --primary: oklch(0.7800 0.1600 230);
-  --primary-foreground: oklch(0.1450 0.0250 265);
-  --secondary: oklch(0.2700 0.0330 265);
-  --secondary-foreground: oklch(0.8500 0.0150 250);
-  --muted: oklch(0.2200 0.0270 265);
-  --muted-foreground: oklch(0.6200 0.0200 260);
-  --accent: oklch(0.3400 0.0500 250);
-  --accent-foreground: oklch(0.9200 0.0080 250);
-  --destructive: oklch(0.6500 0.2050 25);
-  --destructive-foreground: oklch(0.1450 0.0250 265);
-  --border: oklch(0.3000 0.0350 265);
-  --input: oklch(0.3000 0.0350 265);
-  --ring: oklch(0.7800 0.1600 230);
-  --chart-1: oklch(0.7800 0.1600 230);
-  --chart-2: oklch(0.8200 0.1300 215);
-  --chart-3: oklch(0.7000 0.1700 245);
-  --chart-4: oklch(0.6500 0.1500 260);
-  --chart-5: oklch(0.7500 0.1200 200);
-  --sidebar: oklch(0.1700 0.0270 265);
-  --sidebar-foreground: oklch(0.9200 0.0080 250);
-  --sidebar-primary: oklch(0.7800 0.1600 230);
-  --sidebar-primary-foreground: oklch(0.1450 0.0250 265);
-  --sidebar-accent: oklch(0.3400 0.0500 250);
-  --sidebar-accent-foreground: oklch(0.9200 0.0080 250);
-  --sidebar-border: oklch(0.3000 0.0350 265);
-  --sidebar-ring: oklch(0.7800 0.1600 230);
+  /* Deep redwood forest floor — almost black with a green undertone      */
+  --background:            oklch(0.1600 0.0250 160);
+  --foreground:            oklch(0.9200 0.0120 80);   /* warm parchment text   */
+  --card:                  oklch(0.2200 0.0300 160);
+  --card-foreground:       oklch(0.9200 0.0120 80);
+  --popover:               oklch(0.2200 0.0300 160);
+  --popover-foreground:    oklch(0.9200 0.0120 80);
+  /* Aquamarine stays bright — the Pacific shines even in dark mode       */
+  --primary:               oklch(0.7400 0.1200 185);
+  --primary-foreground:    oklch(0.1600 0.0250 160);
+  --secondary:             oklch(0.2800 0.0320 160);
+  --secondary-foreground:  oklch(0.8500 0.0180 80);
+  --muted:                 oklch(0.2300 0.0260 160);
+  --muted-foreground:      oklch(0.6200 0.0250 155);
+  --accent:                oklch(0.3200 0.0480 155);  /* fern-tinted card lift */
+  --accent-foreground:     oklch(0.9200 0.0120 80);
+  --destructive:           oklch(0.6500 0.2050 25);
+  --destructive-foreground:oklch(0.1600 0.0250 160);
+  --border:                oklch(0.3100 0.0340 160);
+  --input:                 oklch(0.3100 0.0340 160);
+  --ring:                  oklch(0.7400 0.1200 185);
+  --chart-1:               oklch(0.7400 0.1200 185);
+  --chart-2:               oklch(0.6200 0.1100 155);
+  --chart-3:               oklch(0.7800 0.1300 66);
+  --chart-4:               oklch(0.5800 0.1000 42);
+  --chart-5:               oklch(0.5200 0.0900 150);
+  --sidebar:               oklch(0.1800 0.0260 160);
+  --sidebar-foreground:    oklch(0.9200 0.0120 80);
+  --sidebar-primary:       oklch(0.7400 0.1200 185);
+  --sidebar-primary-foreground: oklch(0.1600 0.0250 160);
+  --sidebar-accent:        oklch(0.3200 0.0480 155);
+  --sidebar-accent-foreground: oklch(0.9200 0.0120 80);
+  --sidebar-border:        oklch(0.3100 0.0340 160);
+  --sidebar-ring:          oklch(0.7400 0.1200 185);
 }
 
 @layer base {
@@ -175,12 +185,11 @@
     letter-spacing: var(--tracking-normal);
     font-feature-settings: "kern", "liga", "calt";
   }
-  /* Ambient backdrop in dark mode — soft purple/blue radial washes anchored
-     to opposite corners. Matches the screenshots' "deep ocean at night" feel. */
+  /* Ambient backdrop — forest light filtering through canopy in dark mode */
   :root.dark body {
     background:
-      radial-gradient(60% 40% at 85% 8%, color-mix(in oklch, oklch(0.55 0.18 270) 16%, transparent) 0%, transparent 70%),
-      radial-gradient(50% 40% at 10% 95%, color-mix(in oklch, oklch(0.50 0.16 240) 14%, transparent) 0%, transparent 70%),
+      radial-gradient(60% 40% at 85% 8%,  color-mix(in oklch, oklch(0.44 0.10 155) 14%, transparent) 0%, transparent 70%),
+      radial-gradient(50% 40% at 10% 95%, color-mix(in oklch, oklch(0.61 0.11 185) 10%, transparent) 0%, transparent 70%),
       var(--background);
     background-attachment: fixed;
   }
@@ -213,31 +222,37 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    opacity: 0.4;
+    opacity: 0.35;
     mix-blend-mode: overlay;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.6 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
   }
+  /* Warm sandalwood wash for the hero CTA section */
   .hero-wash {
     background:
       radial-gradient(60% 60% at 80% 10%, color-mix(in oklch, var(--accent) 70%, transparent) 0%, transparent 70%),
       radial-gradient(70% 60% at 10% 90%, color-mix(in oklch, var(--secondary) 80%, transparent) 0%, transparent 65%),
       var(--background);
   }
+  /* Deep forest green band — used for the community/app-preview section  */
+  .forest-band {
+    background:
+      radial-gradient(ellipse 70% 60% at 80% 20%, color-mix(in oklch, var(--fern) 22%, transparent), transparent 65%),
+      radial-gradient(ellipse 50% 70% at 10% 80%, color-mix(in oklch, var(--bark) 18%, transparent), transparent 60%),
+      radial-gradient(ellipse 40% 50% at 50% 0%,  color-mix(in oklch, var(--primary) 12%, transparent), transparent 60%),
+      var(--fern-deep);
+    color: oklch(0.9620 0.0180 80);
+  }
 }
 
 /* ------------------------------------------------------------------ *
- *  Marine-forecast inspired surfaces                                    *
- *  Used on Dashboard cards, filter pills, floating bottom nav.          *
- *  Designed to look right in dark mode; degrade gracefully in light.    *
+ *  Shared surface utilities (feed cards, pills, bottom nav)            *
  * ------------------------------------------------------------------ */
 @layer utilities {
-  /* Glassy card with a soft top-to-bottom gradient + faint inner glow at top.
-     The gradient mimics how light hits a slightly raised surface from above. */
   .surface-glass {
     background:
       linear-gradient(
         180deg,
-        color-mix(in oklch, var(--card) 96%, oklch(0.92 0.08 230) 4%) 0%,
+        color-mix(in oklch, var(--card) 96%, var(--primary) 4%) 0%,
         var(--card) 100%
       );
     border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
@@ -250,18 +265,16 @@
     background:
       linear-gradient(
         180deg,
-        color-mix(in oklch, var(--card) 88%, oklch(0.45 0.12 240) 12%) 0%,
+        color-mix(in oklch, var(--card) 88%, oklch(0.44 0.10 155) 12%) 0%,
         var(--card) 70%,
         color-mix(in oklch, var(--card) 92%, var(--background) 8%) 100%
       );
-    border-color: color-mix(in oklch, oklch(0.55 0.10 240) 35%, transparent);
+    border-color: color-mix(in oklch, oklch(0.44 0.10 155) 30%, transparent);
     box-shadow:
-      0 1px 0 color-mix(in oklch, oklch(0.95 0.10 230) 8%, transparent) inset,
+      0 1px 0 color-mix(in oklch, oklch(0.90 0.05 155) 8%, transparent) inset,
       0 24px 60px -28px oklch(0 0 0 / 0.8);
   }
 
-  /* Floating pill — used for filter chips and the bottom nav. Soft glow ring
-     in the active state, no border in the resting state. */
   .pill {
     display: inline-flex;
     align-items: center;
@@ -290,8 +303,6 @@
       0 8px 28px -10px color-mix(in oklch, var(--primary) 40%, transparent);
   }
 
-  /* Floating glass tab bar (mobile bottom nav). Sits above content, pinned
-     bottom. Translucent so the page tint shows through. */
   .glass-bar {
     background: color-mix(in oklch, var(--card) 75%, transparent);
     border: 1px solid color-mix(in oklch, var(--border) 55%, transparent);
@@ -302,7 +313,6 @@
       0 12px 30px -8px oklch(0 0 0 / 0.45);
   }
 
-  /* Soft cyan glow ring used on hero numerals or feature highlights. */
   .glow-primary {
     text-shadow: 0 0 28px color-mix(in oklch, var(--primary) 45%, transparent);
   }
@@ -313,10 +323,7 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.rise {
-  animation: rise 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
+.rise   { animation: rise 700ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .rise-1 { animation-delay: 80ms; }
 .rise-2 { animation-delay: 180ms; }
 .rise-3 { animation-delay: 300ms; }
@@ -324,16 +331,9 @@
 .rise-5 { animation-delay: 600ms; }
 
 @media (prefers-reduced-motion: reduce) {
-  .rise, .rise-1, .rise-2, .rise-3, .rise-4, .rise-5 {
-    animation: none;
-  }
+  .rise, .rise-1, .rise-2, .rise-3, .rise-4, .rise-5 { animation: none; }
 }
 
-/* Range-toggle chart transitions. Switching to the 30-day view "zooms out"
-   (starts slightly enlarged and settles) to feel like pulling back for the
-   bigger picture; the 7-day view "zooms in" (starts slightly shrunk) to feel
-   like focusing on the week. The chart wrapper is keyed by range so React
-   remounts it, replaying the animation on every toggle. */
 @keyframes zoom-in {
   from { opacity: 0; transform: scale(0.94); }
   to   { opacity: 1; transform: scale(1); }
@@ -344,7 +344,7 @@
   to   { opacity: 1; transform: scale(1); }
 }
 
-.zoom-in  { animation: zoom-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.zoom-in  { animation: zoom-in  260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .zoom-out { animation: zoom-out 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 @media (prefers-reduced-motion: reduce) {
