@@ -2,23 +2,32 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleExecutable</key>
-  <string>$(EXECUTABLE_NAME)</string>
-  <key>CFBundleName</key>
-  <string>synzoia</string>
-  <key>CFBundleIdentifier</key>
-  <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-  <key>CFBundleShortVersionString</key>
-  <string>$(MARKETING_VERSION)</string>
-  <key>CFBundleVersion</key>
-  <string>$(CURRENT_PROJECT_VERSION)</string>
-  <key>UILaunchScreen</key>
-  <dict/>
-  <key>UISupportedInterfaceOrientations</key>
-  <array>
-    <string>UIInterfaceOrientationPortrait</string>
-  </array>
-  <key>NSHealthShareUsageDescription</key>
-  <string>synzoia reads your sleep and step data from Apple Health to post your nightly sleep and daily steps to your crew feed and leaderboard.</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleName</key>
+	<string>synzoia</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>synzoia reads your sleep and step data from Apple Health to post your nightly sleep and daily steps to your crew feed and leaderboard.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>PlusJakartaSans.ttf</string>
+		<string>PlusJakartaSans-Italic.ttf</string>
+		<string>CormorantGaramond.ttf</string>
+		<string>CormorantGaramond-Italic.ttf</string>
+		<string>SpaceMono-Regular.ttf</string>
+		<string>SpaceMono-Bold.ttf</string>
+	</array>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
 </dict>
 </plist>

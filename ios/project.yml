@@ -19,6 +19,7 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+      - path: Resources/Fonts
     settings:
       base:
         INFOPLIST_FILE: Sources/Info.plist
