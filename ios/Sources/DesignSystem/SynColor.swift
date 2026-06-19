@@ -36,6 +36,10 @@ enum SynColor {
     static let sky = hex("#30A4AA")
     static let healthRed = hex("#FA676E")
 
+    /// card+fern 80/20 mix for the recap card top gradient (iOS 17 compatible, no Color.mix)
+    /// card = #0E2017, fern = #4CA871 -> 80% card + 20% fern
+    static let recapCardTop = hex("#1B2D1C")
+
     /// Source stops the avatar gradients pick pairs from.
     static let avatarStops: [Color] = [teal, fern, deepTeal, deepFern, amber, amber2, bark, bark2, sky]
 }
