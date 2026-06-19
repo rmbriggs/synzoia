@@ -3,7 +3,7 @@ import SwiftUI
 struct OnboardingView: View {
     @State private var model: OnboardingViewModel
 
-    init(api: APIClient, onSignIn: @escaping (String) -> Void) {
+    init(api: APIClient, onSignIn: @escaping (_ token: String, _ username: String) -> Void) {
         _model = State(initialValue: OnboardingViewModel(api: api, onSignIn: onSignIn))
     }
 
@@ -134,5 +134,5 @@ private struct StepRow: View {
 }
 
 #Preview {
-    OnboardingView(api: APIClient(config: .production), onSignIn: { _ in })
+    OnboardingView(api: APIClient(config: .production), onSignIn: { _, _ in })
 }

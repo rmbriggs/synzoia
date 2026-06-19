@@ -16,7 +16,7 @@ final class AppModelTests: XCTestCase {
     func testSignInPersistsAndFlips() {
         let store = InMemoryTokenStore(nil)
         let model = AppModel(store: store)
-        model.signIn(token: "NEW")
+        model.signIn(token: "NEW", username: "tester")
         XCTAssertTrue(model.isSignedIn)
         XCTAssertEqual(store.load(), "NEW")
     }

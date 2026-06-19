@@ -15,9 +15,9 @@ final class OnboardingViewModel {
     private(set) var mintedToken: String?
 
     private let api: APIClient
-    private let onSignIn: (String) -> Void
+    private let onSignIn: (_ token: String, _ username: String) -> Void
 
-    init(api: APIClient, onSignIn: @escaping (String) -> Void) {
+    init(api: APIClient, onSignIn: @escaping (_ token: String, _ username: String) -> Void) {
         self.api = api
         self.onSignIn = onSignIn
     }
@@ -34,7 +34,7 @@ final class OnboardingViewModel {
             let profile = try await api.createProfile(username: name)
             mintedToken = profile.token
             state = .idle
-            onSignIn(profile.token)
+            onSignIn(profile.token, profile.username)
         } catch let error as APIError {
             state = .failed(error.userMessage)
         } catch {

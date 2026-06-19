@@ -7,8 +7,8 @@ struct RootView: View {
         if app.isSignedIn {
             SignedInView(app: app)
         } else {
-            OnboardingView(api: app.api, onSignIn: { token in
-                app.signIn(token: token)
+            OnboardingView(api: app.api, onSignIn: { token, username in
+                app.signIn(token: token, username: username)
             })
         }
     }

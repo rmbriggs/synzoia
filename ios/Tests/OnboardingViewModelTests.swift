@@ -14,7 +14,7 @@ final class OnboardingViewModelTests: MockedNetworkTestCase {
             return (MockURLProtocol.response(request, status: 201), body)
         }
         var signedInWith: String?
-        let vm = OnboardingViewModel(api: api(), onSignIn: { signedInWith = $0 })
+        let vm = OnboardingViewModel(api: api(), onSignIn: { token, _ in signedInWith = token })
         vm.username = "  alice  "      // trims whitespace
         await vm.join()
         XCTAssertEqual(signedInWith, "TOK-9")
@@ -28,7 +28,7 @@ final class OnboardingViewModelTests: MockedNetworkTestCase {
             return (MockURLProtocol.response(request, status: 409), body)
         }
         var called = false
-        let vm = OnboardingViewModel(api: api(), onSignIn: { _ in called = true })
+        let vm = OnboardingViewModel(api: api(), onSignIn: { _, _ in called = true })
         vm.username = "alice"
         await vm.join()
         XCTAssertEqual(vm.state, .failed("That name is taken."))
@@ -36,7 +36,7 @@ final class OnboardingViewModelTests: MockedNetworkTestCase {
     }
 
     func testCanSubmitRequiresNonEmptyUsername() {
-        let vm = OnboardingViewModel(api: api(), onSignIn: { _ in })
+        let vm = OnboardingViewModel(api: api(), onSignIn: { _, _ in })
         XCTAssertFalse(vm.canSubmit)
         vm.username = "x"
         XCTAssertTrue(vm.canSubmit)

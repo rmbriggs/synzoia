@@ -20,7 +20,8 @@ private func makeAppModel() -> AppModel {
     let model = AppModel()
     #if targetEnvironment(simulator)
     if let token = ProcessInfo.processInfo.environment["SYNZOIA_TOKEN"], !token.isEmpty {
-        model.signIn(token: token)
+        let username = ProcessInfo.processInfo.environment["SYNZOIA_USERNAME"] ?? ""
+        model.signIn(token: token, username: username)
     }
     #endif
     return model
