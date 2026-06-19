@@ -21,7 +21,7 @@ Supabase) over the same REST endpoints the website already uses. We change
 |---|---|---|
 | App type | Full native SwiftUI app | User wants a real native app, not a web wrapper. |
 | Backend | Reuse existing FastAPI/Supabase as-is | The backend already accepts HealthKit-shaped sleep and step payloads. Nothing to add. |
-| Data layer | Plain REST over `URLSession` | The web app uses React Query polling, not Supabase Realtime, so REST + pull-to-refresh is a faithful copy. Avoids any third-party Swift packages. |
+| Data layer (v1) | Plain REST over `URLSession`, pull-to-refresh + periodic refetch | Keeps the client to Apple frameworks only (no SPM). The website's live feed uses Supabase Realtime, but for a small crew, refresh-on-open plus pull-to-refresh is good enough for v1. True Realtime parity is an optional Phase 4 enhancement (§9). |
 | Dependencies | Apple frameworks only (SwiftUI, HealthKit, URLSession, Security/Keychain) | No SPM packages means no dynamic-framework embedding problems, the #1 XcodeGen gotcha. Simplest possible build for a first iOS project. |
 | Sign-in | Keep the existing token model | Backend identity is already a long-lived per-user Bearer token. App mints one at onboarding and stores it in the Keychain. No backend auth changes. |
 | Health scope | Both sleep and steps | User asked for both. Backend supports both. |
@@ -249,7 +249,10 @@ user's phone.
 - **Phase 3: Steps + remaining screens.** Steps snapshot sync, Leaderboard,
   Crew/Users, Profile, Settings. App reaches feature parity with the website.
 - **Phase 4: Background sync + polish.** HealthKit background delivery, app
-  icon, loading/error/empty states, transitions.
+  icon, loading/error/empty states, transitions. Optional: live-feed parity by
+  subscribing to Supabase Realtime on `posts` (this adds the one third-party
+  package, `supabase-swift`, and the manual "Embed & Sign" step from the iOS
+  skill). If skipped, the feed stays pull-to-refresh + periodic refetch.
 - **Phase 5: TestFlight.** Enroll in the Developer Program, archive, upload,
   invite the crew.
 
@@ -258,7 +261,9 @@ user's phone.
 - Backend changes of any kind (auth upgrade, new endpoints).
 - "Sign in with Apple" / real account recovery (possible future upgrade).
 - Group chat / reactions (not present in the shipped website).
-- Supabase Realtime in the app (website doesn't use it; pull-to-refresh matches).
+- Live Supabase Realtime feed in v1. The website *does* use Realtime for the
+  feed, but matching it requires the `supabase-swift` package, so it is deferred
+  to the optional Phase 4 enhancement. v1 uses pull-to-refresh + periodic refetch.
 - Android, iPad-specific layouts, widgets, watchOS app.
 
 ## 11. Open items to confirm during implementation
