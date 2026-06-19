@@ -5,7 +5,7 @@ struct RootView: View {
 
     var body: some View {
         if app.isSignedIn {
-            FeedView(api: app.api)
+            SignedInView(app: app)
         } else {
             OnboardingView(api: app.api, onSignIn: { token in
                 app.signIn(token: token)

@@ -2,15 +2,29 @@ import SwiftUI
 
 struct FeedView: View {
     @State private var model: FeedViewModel
+    private let onOpenSettings: (() -> Void)?
 
-    init(api: APIClient) {
+    init(api: APIClient, onOpenSettings: (() -> Void)? = nil) {
         _model = State(initialValue: FeedViewModel(api: api))
+        self.onOpenSettings = onOpenSettings
     }
 
     var body: some View {
         NavigationStack {
             content
                 .navigationTitle("Feed")
+                .toolbar {
+                    if let onOpenSettings {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button {
+                                onOpenSettings()
+                            } label: {
+                                Image(systemName: "gearshape")
+                            }
+                            .accessibilityLabel("Settings")
+                        }
+                    }
+                }
         }
         .task { await model.load() }
     }
