@@ -1,7 +1,7 @@
 import XCTest
 @testable import synzoia
 
-final class EndpointsTests: XCTestCase {
+final class EndpointsTests: MockedNetworkTestCase {
     private func client() -> APIClient {
         APIClient(config: APIConfig(baseURL: URL(string: "https://example.test")!),
                   session: MockURLProtocol.makeSession())
@@ -21,6 +21,7 @@ final class EndpointsTests: XCTestCase {
     func testFetchFeedReturnsPostsArray() async throws {
         MockURLProtocol.handler = { request in
             XCTAssertEqual(request.url?.path, "/api/posts")
+            XCTAssertEqual(request.url?.query, "limit=50")
             let body = Data(#"{"posts":[{"id":1,"user_id":2,"username":"a","type":"steps","timestamp":"t","details":null,"body":null}]}"#.utf8)
             return (MockURLProtocol.response(request, status: 200), body)
         }

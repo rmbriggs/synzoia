@@ -10,7 +10,12 @@ final class MockURLProtocol: URLProtocol {
 
     override func startLoading() {
         guard let handler = MockURLProtocol.handler else {
-            fatalError("MockURLProtocol.handler was not set")
+            client?.urlProtocol(self, didFailWithError: NSError(
+                domain: "MockURLProtocol",
+                code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "No handler set for this request"]
+            ))
+            return
         }
         do {
             let (response, data) = try handler(request)

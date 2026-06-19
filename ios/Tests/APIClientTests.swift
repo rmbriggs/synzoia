@@ -1,7 +1,7 @@
 import XCTest
 @testable import synzoia
 
-final class APIClientTests: XCTestCase {
+final class APIClientTests: MockedNetworkTestCase {
     private func makeClient(token: String? = nil) -> APIClient {
         APIClient(config: APIConfig(baseURL: URL(string: "https://example.test")!),
                   session: MockURLProtocol.makeSession(),

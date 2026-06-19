@@ -2,7 +2,7 @@ import XCTest
 @testable import synzoia
 
 @MainActor
-final class OnboardingViewModelTests: XCTestCase {
+final class OnboardingViewModelTests: MockedNetworkTestCase {
     private func api() -> APIClient {
         APIClient(config: APIConfig(baseURL: URL(string: "https://example.test")!),
                   session: MockURLProtocol.makeSession())

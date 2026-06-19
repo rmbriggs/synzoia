@@ -23,11 +23,11 @@ final class OnboardingViewModel {
     }
 
     var canSubmit: Bool {
-        !username.trimmingCharacters(in: .whitespaces).isEmpty && state != .submitting
+        !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && state != .submitting
     }
 
     func join() async {
-        let name = username.trimmingCharacters(in: .whitespaces)
+        let name = username.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
         state = .submitting
         do {

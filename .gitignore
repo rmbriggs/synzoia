@@ -57,4 +57,3 @@ ios/*.xcodeproj/
 ios/DerivedData/
 **/xcuserdata/
 *.xcuserstate
-.DS_Store
