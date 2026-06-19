@@ -18,5 +18,7 @@
   <array>
     <string>UIInterfaceOrientationPortrait</string>
   </array>
+  <key>NSHealthShareUsageDescription</key>
+  <string>synzoia reads your sleep and step data from Apple Health to post your nightly sleep and daily steps to your crew feed and leaderboard.</string>
 </dict>
 </plist>

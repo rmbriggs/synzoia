@@ -25,6 +25,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.synzoia.ios
         TARGETED_DEVICE_FAMILY: "1"
         ENABLE_PREVIEWS: YES
+        CODE_SIGN_ENTITLEMENTS: Sources/synzoia.entitlements
 
   synzoiaTests:
     type: bundle.unit-test
