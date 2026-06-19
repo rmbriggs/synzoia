@@ -85,6 +85,31 @@ struct ProfilesResponse: Decodable {
     let profiles: [ProfileSummary]
 }
 
+// MARK: - Rank value formatting
+
+private let _stepsFormatter: NumberFormatter = {
+    let f = NumberFormatter()
+    f.numberStyle = .decimal
+    return f
+}()
+
+/// Returns the display string for a leaderboard `total` value.
+/// - Steps: raw grouped integer (e.g. "412,800")
+/// - Sleep: per-night average over the rolling 30-day window = total / 30,
+///   formatted "Xh Ym avg". The backend stores a capped 30-day SUM of minutes,
+///   so dividing by 30 gives the nightly average.
+func formattedRankValue(metric: Metric, total: Int) -> String {
+    switch metric {
+    case .steps:
+        return _stepsFormatter.string(from: NSNumber(value: total)) ?? "\(total)"
+    case .sleep:
+        let avgMinutes = total / 30
+        let hours = avgMinutes / 60
+        let minutes = avgMinutes % 60
+        return String(format: "%dh %02dm avg", hours, minutes)
+    }
+}
+
 // MARK: - APIClient extensions
 
 extension APIClient {

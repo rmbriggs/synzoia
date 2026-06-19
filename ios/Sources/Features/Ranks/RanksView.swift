@@ -148,7 +148,7 @@ private struct RankCategoryCard: View {
                     .foregroundStyle(SynColor.fg)
                     .lineLimit(1)
 
-                MonoLabel(formattedValue(entry.total), size: 11, color: SynColor.muted)
+                MonoLabel(formattedRankValue(metric: metric, total: entry.total), size: 11, color: SynColor.muted)
             }
         }
     }
@@ -196,23 +196,6 @@ private struct RankCategoryCard: View {
         case .sleep: return SynColor.remPurple
         }
     }
-
-    private func formattedValue(_ total: Int) -> String {
-        switch metric {
-        case .steps:
-            return Self.stepsFormatter.string(from: NSNumber(value: total)) ?? "\(total)"
-        case .sleep:
-            let hours = total / 60
-            let minutes = total % 60
-            return String(format: "%dh %02dm avg", hours, minutes)
-        }
-    }
-
-    private static let stepsFormatter: NumberFormatter = {
-        let f = NumberFormatter()
-        f.numberStyle = .decimal
-        return f
-    }()
 
     // MARK: Card appearance
 

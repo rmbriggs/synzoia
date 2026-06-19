@@ -213,14 +213,17 @@ struct ProfileView: View {
     private func joinedLabel(summary: UserMetricSummary?) -> String {
         var parts: [String] = []
 
-        if let joinDate = summary?.joinDate,
+        // Prefer the join date from the public profiles list; fall back to the steps summary.
+        let joinDateString = model.profileSummary?.joinDate ?? summary?.joinDate
+        if let joinDate = joinDateString,
            let date = ProfileView.isoDateFormatter.date(from: joinDate) {
             let monthYear = ProfileView.monthYearFormatter.string(from: date)
             parts.append("JOINED \(monthYear.uppercased())")
         }
 
-        if let score = summary?.score {
-            parts.append(ProfileView.stepsFormatter.string(from: NSNumber(value: score)).map { "\($0) STEPS" } ?? "\(score) STEPS")
+        // Use all-time steps from the profiles list, not the 30-day score.
+        if let allTime = model.profileSummary?.totalStepsAllTime {
+            parts.append(ProfileView.stepsFormatter.string(from: NSNumber(value: allTime)).map { "\($0) STEPS" } ?? "\(allTime) STEPS")
         }
 
         return parts.isEmpty ? "@\(model.username)" : parts.joined(separator: " \u{00B7} ")

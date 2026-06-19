@@ -45,6 +45,19 @@ private let stepsWeeklyEmptyJSON = Data(#"""
 }
 """#.utf8)
 
+private let profilesJSON = Data(#"""
+{
+    "profiles": [
+        {"username": "micah", "join_date": "2026-01-15", "total_steps_all_time": 1234567},
+        {"username": "angela", "join_date": "2026-02-01", "total_steps_all_time": 987000}
+    ]
+}
+"""#.utf8)
+
+private let profilesEmptyJSON = Data(#"""
+{"profiles": []}
+"""#.utf8)
+
 private let errorJSON = Data(#"{"error":{"code":"server_error","message":"Something went wrong."}}"#.utf8)
 
 // MARK: - Tests
@@ -59,11 +72,17 @@ final class ProfileViewModelTests: MockedNetworkTestCase {
         )
     }
 
-    private func handler(summaryData: Data, weeklyData: Data) -> (URLRequest) throws -> (HTTPURLResponse, Data) {
+    private func handler(
+        summaryData: Data,
+        weeklyData: Data,
+        profilesData: Data = profilesJSON
+    ) -> (URLRequest) throws -> (HTTPURLResponse, Data) {
         { req in
             let path = req.url?.path ?? ""
             let body: Data
-            if path.contains("/weekly") {
+            if path == "/api/profiles" {
+                body = profilesData
+            } else if path.contains("/weekly") {
                 body = weeklyData
             } else {
                 body = summaryData
@@ -79,6 +98,7 @@ final class ProfileViewModelTests: MockedNetworkTestCase {
         XCTAssertEqual(vm.state, .loading)
         XCTAssertNil(vm.stepsSummary)
         XCTAssertNil(vm.stepsWeekly)
+        XCTAssertNil(vm.profileSummary)
     }
 
     // MARK: Successful load
@@ -114,6 +134,39 @@ final class ProfileViewModelTests: MockedNetworkTestCase {
         let vm = ProfileViewModel(api: api(), username: "micah")
         await vm.load()
         XCTAssertEqual(vm.stepsSummary?.joinDate, "2026-01-15")
+    }
+
+    // MARK: All-time steps from profiles API
+
+    func testLoadPopulatesProfileSummaryAllTimeSteps() async {
+        MockURLProtocol.handler = handler(summaryData: stepsSummaryJSON, weeklyData: stepsWeeklyJSON)
+        let vm = ProfileViewModel(api: api(), username: "micah")
+        await vm.load()
+        XCTAssertNotNil(vm.profileSummary, "profileSummary should be populated for known user")
+        XCTAssertEqual(vm.profileSummary?.totalStepsAllTime, 1234567,
+                       "all-time steps should come from /api/profiles, not the 30-day score")
+        XCTAssertEqual(vm.profileSummary?.joinDate, "2026-01-15")
+    }
+
+    func testProfileSummaryNilWhenUserNotInProfilesList() async {
+        MockURLProtocol.handler = handler(
+            summaryData: stepsSummaryNilScoreJSON,
+            weeklyData: stepsWeeklyEmptyJSON,
+            profilesData: profilesEmptyJSON
+        )
+        let vm = ProfileViewModel(api: api(), username: "ghost")
+        await vm.load()
+        XCTAssertEqual(vm.state, .loaded)
+        XCTAssertNil(vm.profileSummary, "profileSummary nil when user absent from profiles list")
+    }
+
+    func testAllTimeStepsDifferentFrom30DayScore() async {
+        // 30-day score = 412800 but all-time = 1234567: they must not be conflated.
+        MockURLProtocol.handler = handler(summaryData: stepsSummaryJSON, weeklyData: stepsWeeklyJSON)
+        let vm = ProfileViewModel(api: api(), username: "micah")
+        await vm.load()
+        XCTAssertNotEqual(vm.profileSummary?.totalStepsAllTime, vm.stepsSummary?.score,
+                          "all-time steps and 30-day score should be distinct values")
     }
 
     // MARK: Nil score / rank handled gracefully
@@ -159,6 +212,7 @@ final class ProfileViewModelTests: MockedNetworkTestCase {
         await vm.load()
         XCTAssertNil(vm.stepsSummary)
         XCTAssertNil(vm.stepsWeekly)
+        XCTAssertNil(vm.profileSummary)
     }
 
     // MARK: Load uses correct username in path
@@ -168,6 +222,7 @@ final class ProfileViewModelTests: MockedNetworkTestCase {
         MockURLProtocol.handler = { req in
             capturedPaths.append(req.url?.path ?? "")
             let path = req.url?.path ?? ""
+            if path == "/api/profiles" { return (MockURLProtocol.response(req, status: 200), profilesJSON) }
             return (MockURLProtocol.response(req, status: 200), path.contains("/weekly") ? stepsWeeklyJSON : stepsSummaryJSON)
         }
         let vm = ProfileViewModel(api: api(), username: "micah")
@@ -176,6 +231,8 @@ final class ProfileViewModelTests: MockedNetworkTestCase {
                       "should request summary for micah, got: \(capturedPaths)")
         XCTAssertTrue(capturedPaths.contains { $0.contains("micah") && $0.contains("weekly") },
                       "should request weekly for micah, got: \(capturedPaths)")
+        XCTAssertTrue(capturedPaths.contains { $0 == "/api/profiles" },
+                      "should request /api/profiles, got: \(capturedPaths)")
     }
 
     // MARK: Retry resets to loading then resolves
@@ -184,10 +241,11 @@ final class ProfileViewModelTests: MockedNetworkTestCase {
         var callCount = 0
         MockURLProtocol.handler = { req in
             callCount += 1
-            if callCount <= 2 {
+            if callCount <= 3 {
                 return (MockURLProtocol.response(req, status: 500), errorJSON)
             }
             let path = req.url?.path ?? ""
+            if path == "/api/profiles" { return (MockURLProtocol.response(req, status: 200), profilesJSON) }
             return (MockURLProtocol.response(req, status: 200), path.contains("/weekly") ? stepsWeeklyJSON : stepsSummaryJSON)
         }
         let vm = ProfileViewModel(api: api(), username: "micah")

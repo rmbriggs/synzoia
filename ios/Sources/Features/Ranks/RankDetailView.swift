@@ -221,7 +221,7 @@ struct RankDetailView: View {
                     .foregroundStyle(SynColor.fg)
 
                 if let entry {
-                    Text(formattedValue(entry.total))
+                    Text(formattedRankValue(metric: selected, total: entry.total))
                         .font(SynFont.mono(9))
                         .foregroundStyle(SynColor.muted)
                 }
@@ -302,7 +302,7 @@ struct RankDetailView: View {
                 .foregroundStyle(isMe ? SynColor.primary : SynColor.fg)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text(formattedValue(entry.total))
+            Text(formattedRankValue(metric: selected, total: entry.total))
                 .font(SynFont.mono(13))
                 .foregroundStyle(isMe ? SynColor.primary : SynColor.fg)
         }
@@ -334,7 +334,7 @@ struct RankDetailView: View {
         case .steps:
             text = "Capped at 25k / day. Consistency beats one big day."
         case .sleep:
-            text = "Rolling 30-day average. Quality and consistency count."
+            text = "Per-night average over the last 30 days, capped at 9h/night."
         }
         return Text(text.uppercased())
             .font(SynFont.mono(10))
@@ -361,25 +361,8 @@ struct RankDetailView: View {
         }
     }
 
-    // MARK: - Formatting
-
-    private func formattedValue(_ total: Int) -> String {
-        switch selected {
-        case .steps:
-            return Self.stepsFormatter.string(from: NSNumber(value: total)) ?? "\(total)"
-        case .sleep:
-            let hours = total / 60
-            let minutes = total % 60
-            return String(format: "%dh %02dm", hours, minutes)
-        }
-    }
-
-    private static let stepsFormatter: NumberFormatter = {
-        let f = NumberFormatter()
-        f.numberStyle = .decimal
-        return f
-    }()
 }
+
 
 // MARK: - Color blend helper
 

@@ -99,7 +99,6 @@ struct SleepStageBar: View {
 /// 7-day bar chart. Last bar is full primary; previous bars are primary at 55% opacity.
 struct WeekBars: View {
     var values: [Double]            // 0...1 heights, 7 entries
-    var highlightLast: Bool = true
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 5) {

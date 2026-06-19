@@ -2,10 +2,12 @@ import SwiftUI
 
 struct FeedView: View {
     @State private var model: FeedViewModel
+    private let username: String?
     private let onOpenSettings: (() -> Void)?
 
-    init(api: APIClient, onOpenSettings: (() -> Void)? = nil) {
+    init(api: APIClient, username: String? = nil, onOpenSettings: (() -> Void)? = nil) {
         _model = State(initialValue: FeedViewModel(api: api))
+        self.username = username
         self.onOpenSettings = onOpenSettings
     }
 
@@ -31,7 +33,7 @@ struct FeedView: View {
                 Button {
                     onOpenSettings?()
                 } label: {
-                    GradientAvatar(username: "me", size: 34)
+                    GradientAvatar(username: username?.isEmpty == false ? username! : "me", size: 34)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Settings")

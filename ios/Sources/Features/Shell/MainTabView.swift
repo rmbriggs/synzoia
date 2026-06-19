@@ -62,7 +62,7 @@ struct MainTabView: View {
     private var tabContent: some View {
         switch selected {
         case .feed:
-            FeedView(api: app.api, onOpenSettings: { showSettings = true })
+            FeedView(api: app.api, username: app.username, onOpenSettings: { showSettings = true })
 
         case .groups:
             GroupsView()
