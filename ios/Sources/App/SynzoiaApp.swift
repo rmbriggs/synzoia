@@ -2,9 +2,12 @@ import SwiftUI
 
 @main
 struct SynzoiaApp: App {
+    @State private var app = AppModel()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
+                .environment(app)
         }
     }
 }
