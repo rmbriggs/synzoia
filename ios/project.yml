@@ -26,10 +26,26 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         ENABLE_PREVIEWS: YES
 
+  synzoiaTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.synzoia.ios.tests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: synzoia
+
 schemes:
   synzoia:
     build:
       targets:
         synzoia: all
+        synzoiaTests: [test]
     run:
       config: Debug
+    test:
+      targets:
+        - synzoiaTests
