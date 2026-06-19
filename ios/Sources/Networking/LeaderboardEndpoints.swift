@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Metric
 
-enum Metric {
+enum Metric: Hashable {
     case steps
     case sleep
 
