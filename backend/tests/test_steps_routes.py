@@ -262,7 +262,7 @@ def test_global_daily_defaults_to_today_when_no_date_param(monkeypatch):
 
     assert response.status_code == 200
     body = response.json()
-    # The endpoint's "today" is Central Time (synzoia anchors all date
+    # The endpoint's "today" is Central Time (ryzome anchors all date
     # display to America/Chicago). On UTC-only CI hosts, comparing
     # against date.today() (which is UTC) drifts across midnight.
     expected_today = (

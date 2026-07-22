@@ -39,7 +39,7 @@ def _auth() -> dict:
 
 def test_db_dump_is_public_with_tokens_redacted(monkeypatch):
     """/api/db/dump is intentionally world-readable — it backs the
-    public /db transparency page, and synzoia has no website-side
+    public /db transparency page, and ryzome has no website-side
     login to gate it behind. The actual safety property is that
     `profiles.token` (the auth credential) is stripped from the
     response. Anonymous callers get a 200 with the dump minus tokens,

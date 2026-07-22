@@ -1,7 +1,7 @@
 /**
- * Centralized timezone handling for synzoia.
+ * Centralized timezone handling for ryzome.
  *
- * synzoia displays everything in Central Time regardless of where the
+ * ryzome displays everything in Central Time regardless of where the
  * viewer is — the audience is Central-based and the iOS Shortcut that
  * writes step timestamps lives on Central-time iPhones, so anchoring
  * the website to the same zone keeps "today" and "this week" consistent

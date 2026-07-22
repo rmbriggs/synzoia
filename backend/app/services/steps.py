@@ -63,7 +63,7 @@ STEPS_DAILY_CAP = 20_000
 # threshold won't fire again until tomorrow CT.
 MILESTONE_THRESHOLDS = (1000, 5000, 10000)
 
-# synzoia displays in Central Time. The iOS Shortcut writes step
+# ryzome displays in Central Time. The iOS Shortcut writes step
 # timestamps as UTC (the `ISO 8601` formatter in Shortcuts produces
 # the `Z` form, which psycopg strips to a naive UTC value when
 # inserting into the `timestamp without time zone` column). So every
