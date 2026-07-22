@@ -22,7 +22,7 @@ from backend.app.routes import profiles as profiles_routes
 from backend.app.routes import sleep as sleep_routes
 from backend.app.routes import steps as steps_routes
 
-app = FastAPI(title="synzoia")
+app = FastAPI(title="ryzome")
 register_error_handlers(app)
 app.include_router(steps_routes.router)
 app.include_router(posts_routes.router)
@@ -60,7 +60,7 @@ def db_dump() -> dict:
     per table — most importantly `profiles.token`, which IS the auth
     credential. With tokens redacted, the dump contains only data the
     user already sees in the feed/leaderboard, so this endpoint is
-    intentionally public (the /db page is part of synzoia's "everything
+    intentionally public (the /db page is part of ryzome's "everything
     is visible" transparency story and the site has no website-side
     login flow to gate it behind).
 

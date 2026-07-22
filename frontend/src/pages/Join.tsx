@@ -60,7 +60,7 @@ export default function Join() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <Card className="max-w-sm w-full">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">synzoia</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">ryzome</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Pick a username. Get a token.
           </p>

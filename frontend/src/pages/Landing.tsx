@@ -138,7 +138,7 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto px-6 sm:px-8 h-[68px] flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="font-display italic text-[26px] tracking-tight leading-none">
-            syn<span className="text-primary">z</span>oia
+            ry<span className="text-primary">z</span>ome
           </Link>
 
           {/* Nav links */}
@@ -469,7 +469,7 @@ export default function Landing() {
             {/* Brand */}
             <div className="col-span-2">
               <Link to="/" className="font-display italic text-[1.75rem] tracking-tight">
-                syn<span className="text-primary">z</span>oia
+                ry<span className="text-primary">z</span>ome
               </Link>
               <p className="label-mono text-muted-foreground mt-3 leading-relaxed">
                 Public by default.
@@ -528,7 +528,7 @@ export default function Landing() {
           {/* Bottom bar */}
           <div className="pt-7 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <span className="label-mono text-muted-foreground">
-              Cormorant Garamond · Plus Jakarta Sans · Space Mono · © {new Date().getFullYear()} synzoia
+              Cormorant Garamond · Plus Jakarta Sans · Space Mono · © {new Date().getFullYear()} ryzome
             </span>
             <span className="label-mono text-muted-foreground">
               Public by default. No algorithm. No ads.

@@ -32,7 +32,7 @@ from backend.app.services import steps as svc
 router = APIRouter(prefix="/api/steps", tags=["steps"])
 
 
-# synzoia anchors all dates to Central Time. The iOS Shortcut writes
+# ryzome anchors all dates to Central Time. The iOS Shortcut writes
 # step timestamps in local (CT) time, so bucketing the default "today"
 # the same way keeps no-date-param queries consistent with what got
 # posted. The frontend also passes ?date= as a CT date.

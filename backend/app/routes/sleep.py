@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sleep", tags=["sleep"])
 
 
-# synzoia anchors all dates to Central Time. The iOS Shortcut writes
+# ryzome anchors all dates to Central Time. The iOS Shortcut writes
 # sleep timestamps in UTC; the service translates them. For
 # user-facing "today" defaults, we want CT so the no-date-param
 # request matches what feels like today.

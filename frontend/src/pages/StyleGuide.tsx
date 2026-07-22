@@ -107,7 +107,7 @@ export default function StyleGuide() {
                 data-logo-slot
                 className="font-display italic text-3xl tracking-tight"
               >
-                syn<span className="text-primary">z</span>oia
+                ry<span className="text-primary">z</span>ome
               </span>
               <div className="label-mono text-muted-foreground mt-3">
                 The colophon
@@ -120,7 +120,7 @@ export default function StyleGuide() {
                 <em className="text-primary">visual language</em>.
               </h1>
               <p className="text-muted-foreground mt-6 max-w-xl leading-relaxed">
-                Every token, type face, and primitive that makes up the synzoia
+                Every token, type face, and primitive that makes up the ryzome
                 interface — set out plain, with names attached.
               </p>
             </div>
@@ -561,7 +561,7 @@ export default function StyleGuide() {
         <div className="max-w-6xl mx-auto px-6 sm:px-10 py-16">
           <div className="grid grid-cols-12 gap-x-6 gap-y-6">
             <div className="col-span-12 sm:col-span-6">
-              <span className="font-display italic text-4xl">syn<span className="text-primary">z</span>oia</span>
+              <span className="font-display italic text-4xl">ry<span className="text-primary">z</span>ome</span>
               <p className="opacity-70 mt-4 max-w-md">
                 The style guide is set in{' '}
                 <em className="font-display">Cormorant Garamond</em>, Plus Jakarta Sans, and Space
